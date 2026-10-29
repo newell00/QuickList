@@ -1,0 +1,16 @@
+{
+  "name": "Quicklist",
+  "short_name": "Quicklist",
+  "description": "Photograph items and get Facebook Marketplace listings written for you.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#EEF2F0",
+  "theme_color": "#0E5A52",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

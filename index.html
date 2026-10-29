@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Quicklist</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0E5A52">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EEF2F0; --surface:#FFFFFF; --sunk:#E3E9E6; --ink:#17201C; --muted:#56635D; --line:#CFD9D4;
+  --brand:#0E5A52; --brand-ink:#FFFFFF; --tag:#FFD23F; --tag-ink:#1E1A05;
+  --danger:#B3261E; --ok:#2B7A4B;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#121715; --surface:#1B2220; --sunk:#151B19; --ink:#E7EDEA; --muted:#9AA8A1; --line:#2E3936;
+    --brand:#57BFB2; --brand-ink:#06201C; --tag:#F2C531; --tag-ink:#1E1A05;
+    --danger:#F28B82; --ok:#7BD39C;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121715; --surface:#1B2220; --sunk:#151B19; --ink:#E7EDEA; --muted:#9AA8A1; --line:#2E3936;
+  --brand:#57BFB2; --brand-ink:#06201C; --tag:#F2C531; --tag-ink:#1E1A05;
+  --danger:#F28B82; --ok:#7BD39C;
+  color-scheme: dark;
+}
+:root{ box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px); }
+*,*::before,*::after{ box-sizing:inherit; }
+html{ scroll-padding-top:env(safe-area-inset-top,0px); }
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"Archivo", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size:16px; line-height:1.45; -webkit-text-size-adjust:100%;
+}
+body::before{ content:""; position:fixed; inset:0 0 auto; height:env(safe-area-inset-top,0px); z-index:10; background:var(--bg); }
+img{ max-width:100%; display:block; }
+button,input,select,textarea{ font:inherit; color:inherit; }
+:focus-visible{ outline:3px solid var(--brand); outline-offset:2px; }
+.wrap{ max-width:640px; margin:0 auto; padding:0 16px; }
+
+header{ position:sticky; top:env(safe-area-inset-top,0px); z-index:5; background:var(--bg); padding:14px 0 10px; }
+.brandrow{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; }
+.wordmark{ font-size:26px; font-weight:900; font-stretch:68%; letter-spacing:.2px; margin:0; }
+.ai-state{ font-size:13px; color:var(--muted); text-align:right; }
+.tabs{ display:flex; gap:4px; margin-top:10px; background:var(--sunk); border-radius:12px; padding:4px; }
+.tabs button{ flex:1; border:0; background:transparent; padding:9px 6px; border-radius:9px; font-weight:600; cursor:pointer; color:var(--muted); }
+.tabs button[aria-selected="true"]{ background:var(--surface); color:var(--ink); box-shadow:0 1px 0 var(--line); }
+
+main{ padding-bottom:120px; }
+section[hidden]{ display:none; }
+h2{ font-size:30px; font-weight:850; font-stretch:72%; margin:12px 0 2px; line-height:1.05; }
+.sub{ color:var(--muted); margin:0 0 14px; font-size:15px; }
+
+/* capture */
+.grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+.ph{ position:relative; aspect-ratio:1; border-radius:8px; overflow:hidden; background:var(--sunk); }
+.ph img{ width:100%; height:100%; object-fit:cover; }
+.ph button{ position:absolute; top:4px; right:4px; width:28px; height:28px; border-radius:50%; border:0; background:rgba(0,0,0,.6); color:#fff; font-size:16px; line-height:1; cursor:pointer; }
+.empty{ border:2px dashed var(--line); border-radius:14px; padding:38px 18px; text-align:center; color:var(--muted); }
+.shoot{ display:grid; grid-template-columns:2fr 1fr; gap:8px; margin-top:12px; }
+.btn{ border:1px solid var(--line); background:var(--surface); padding:13px 14px; border-radius:12px; font-weight:650; cursor:pointer; text-align:center; }
+.btn.primary{ background:var(--brand); color:var(--brand-ink); border-color:transparent; }
+.btn.big{ padding:17px 14px; font-size:18px; }
+.btn:disabled{ opacity:.45; cursor:default; }
+label.btn{ display:block; position:relative; -webkit-tap-highlight-color:transparent; }
+label.btn:focus-within{ outline:3px solid var(--brand); outline-offset:2px; }
+.btn.small{ padding:7px 10px; font-size:14px; border-radius:9px; }
+.btn.danger{ color:var(--danger); }
+
+.bar{ position:fixed; left:0; right:0; bottom:0; z-index:6; background:var(--bg); border-top:1px solid var(--line);
+  padding:10px 0 calc(10px + env(safe-area-inset-bottom,0px)); }
+.bar .wrap{ display:flex; flex-direction:column; gap:6px; }
+.queue-note{ font-size:13px; color:var(--muted); min-height:18px; }
+
+/* listings */
+.banner{ background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin-bottom:12px; display:flex; gap:10px; align-items:center; justify-content:space-between; }
+.cards{ display:flex; flex-direction:column; gap:12px; }
+.card{ background:var(--surface); border:1px solid var(--line); border-radius:14px; overflow:hidden; }
+.card.posted{ opacity:.62; }
+.card summary{ list-style:none; cursor:pointer; padding:12px; display:grid; grid-template-columns:64px 1fr auto; gap:12px; align-items:center; }
+.card summary::-webkit-details-marker{ display:none; }
+.thumb{ width:64px; height:64px; border-radius:8px; object-fit:cover; background:var(--sunk); }
+.ctitle{ font-weight:700; line-height:1.25; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+.cmeta{ font-size:13px; color:var(--muted); margin-top:2px; }
+.cmeta.err{ color:var(--danger); }
+.cmeta.ok{ color:var(--ok); font-weight:600; }
+
+/* the price sticker */
+.sticker{
+  position:relative; background:var(--tag); color:var(--tag-ink);
+  font-weight:900; font-stretch:62%; font-size:24px; line-height:1;
+  padding:8px 10px 8px 20px; border-radius:4px 10px 10px 4px;
+  transform:rotate(-4deg); white-space:nowrap; min-width:56px; text-align:right;
+  box-shadow:0 2px 0 rgba(0,0,0,.18);
+}
+.sticker::before{ content:""; position:absolute; left:7px; top:50%; width:7px; height:7px; margin-top:-3.5px; border-radius:50%; background:var(--surface); }
+.sticker.pending{ background:var(--sunk); color:var(--muted); font-size:15px; font-weight:700; }
+.dots::after{ content:"…"; animation:blink 1.2s steps(1) infinite; }
+@keyframes blink{ 50%{ opacity:.2; } }
+@media (prefers-reduced-motion: reduce){ .dots::after{ animation:none; } }
+
+.body{ padding:0 12px 14px; display:flex; flex-direction:column; gap:12px; }
+.strip{ display:flex; gap:6px; overflow-x:auto; padding-bottom:2px; }
+.strip img{ width:84px; height:84px; object-fit:cover; border-radius:8px; flex:0 0 auto; }
+.field label{ display:flex; justify-content:space-between; align-items:center; font-size:13px; font-weight:650; color:var(--muted); margin-bottom:4px; }
+.field input,.field select,.field textarea{ width:100%; border:1px solid var(--line); background:var(--bg); border-radius:10px; padding:10px 11px; }
+.field textarea{ min-height:130px; resize:vertical; }
+.two{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.copy{ border:0; background:none; color:var(--brand); font-weight:700; font-size:13px; cursor:pointer; padding:2px 0; }
+.match{ font-size:14px; background:var(--sunk); border-radius:10px; padding:10px 12px; }
+.match a{ color:var(--brand); }
+.note{ font-size:14px; color:var(--muted); }
+.actions{ display:flex; flex-wrap:wrap; gap:8px; }
+
+/* setup */
+.panel{ background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px; }
+.panel h3{ margin:0 0 4px; font-size:18px; }
+.panel p{ margin:0 0 10px; color:var(--muted); font-size:15px; }
+.panel .field{ margin-bottom:10px; }
+.check{ display:flex; gap:10px; align-items:flex-start; font-size:15px; }
+.check input{ width:20px; height:20px; margin-top:2px; accent-color:var(--brand); }
+
+.toast{ position:fixed; left:50%; bottom:calc(96px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%); z-index:20;
+  background:var(--ink); color:var(--bg); padding:10px 16px; border-radius:10px; font-size:15px; max-width:90vw; opacity:0; pointer-events:none; transition:opacity .2s; }
+.toast.show{ opacity:1; }
+.vh{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="brandrow">
+      <h1 class="wordmark">Quicklist</h1>
+      <div class="ai-state" id="aiState"></div>
+    </div>
+    <div class="tabs" role="tablist">
+      <button role="tab" data-tab="capture" aria-selected="true">Capture</button>
+      <button role="tab" data-tab="listings" aria-selected="false" id="listTab">Listings</button>
+      <button role="tab" data-tab="setup" aria-selected="false">Setup</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section id="capture">
+    <h2 id="itemHead">Item 1</h2>
+    <p class="sub" id="itemSub">Take 2–5 photos: front, back, labels, any wear.</p>
+    <div id="photos"></div>
+    <div class="shoot">
+      <label class="btn primary big" id="camBtn">Take photo<input type="file" accept="image/*" capture="environment" id="camIn" class="vh"></label>
+      <label class="btn big" id="galBtn">Gallery<input type="file" accept="image/*" multiple id="galIn" class="vh"></label>
+    </div>
+  </section>
+
+  <section id="listings" hidden>
+    <h2>Listings</h2>
+    <p class="sub" id="listSub">Copy each field into Facebook’s “Create new listing” form.</p>
+    <div id="pendingBanner"></div>
+    <div class="cards" id="cards"></div>
+  </section>
+
+  <section id="setup" hidden>
+    <h2>Setup</h2>
+    <p class="sub">Add your API key once. Everything else is optional.</p>
+
+    <div class="panel">
+      <h3>Claude API key</h3>
+      <p>Create one at console.anthropic.com under API keys. It stays on this phone and is sent only to Anthropic.</p>
+      <div class="field">
+        <label for="sKey">API key</label>
+        <input id="sKey" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="sk-ant-...">
+      </div>
+      <div class="field">
+        <label for="sModel">Model</label>
+        <select id="sModel">
+          <option value="claude-sonnet-5-5">Sonnet 5.5: best identification and pricing</option>
+          <option value="claude-haiku-5-5">Haiku 5.5: faster and cheaper</option>
+        </select>
+      </div>
+      <div class="actions">
+        <button class="btn small primary" id="keyTest">Test key</button>
+      </div>
+      <p class="note" id="keyState" style="margin:10px 0 0"></p>
+    </div>
+
+    <div class="panel">
+      <h3>Amazon order history</h3>
+      <p>Lets Claude match each item to what you bought, for the exact product name and original price. In Amazon, request your data and choose your orders. When the download arrives, unzip it and pick the order history CSV file.</p>
+      <div class="actions">
+        <label class="btn small" id="csvBtn">Choose CSV<input type="file" accept=".csv,text/csv" multiple id="csvIn" class="vh"></label>
+        <button class="btn small danger" id="csvClear" hidden>Remove</button>
+      </div>
+      <p class="note" id="csvState" style="margin:10px 0 0">No orders loaded.</p>
+    </div>
+
+    <div class="panel">
+      <h3>Pricing</h3>
+      <div class="field">
+        <label for="sStyle">Aim for</label>
+        <select id="sStyle">
+          <option value="quick">Quick sale: priced to go this week</option>
+          <option value="fair">Fair: typical local used price</option>
+          <option value="high">Top: willing to wait for the right buyer</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="sCur">Currency</label>
+        <input id="sCur" maxlength="6">
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Description extras</h3>
+      <div class="field">
+        <label for="sNote">Add to every description</label>
+        <textarea id="sNote" style="min-height:80px" placeholder="Pickup near Main St. Cash or Venmo."></textarea>
+      </div>
+      <label class="check"><input type="checkbox" id="sLink"> <span>Add the Amazon product link when an item matches an order</span></label>
+      <div class="field" style="margin-top:10px">
+        <label for="sDomain">Amazon site</label>
+        <input id="sDomain" placeholder="amazon.com">
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Install on your phone</h3>
+      <p>In Chrome, open the ⋮ menu and choose Add to Home screen (or Install app). Quicklist then opens full screen like any other app.</p>
+    </div>
+
+    <div class="panel">
+      <h3>Start over</h3>
+      <p>Deletes every item and photo stored in this app on this device.</p>
+      <button class="btn small danger" id="wipe">Delete all items</button>
+    </div>
+  </section>
+</main>
+
+<div class="bar" id="bar">
+  <div class="wrap">
+    <div class="queue-note" id="queueNote"></div>
+    <button class="btn primary big" id="nextBtn" disabled>Next item</button>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(() => {
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+
+const CATEGORIES = ["Antiques & Collectibles","Appliances","Arts & Crafts","Auto Parts","Baby & Kids","Bags & Luggage","Bicycles","Books, Movies & Music","Electronics & Computers","Furniture","Garden & Outdoor","Health & Beauty","Household","Jewelry & Accessories","Men’s Clothing & Shoes","Mobile Phones","Musical Instruments","Pet Supplies","Sports & Outdoors","Tools","Toys & Games","Video Games","Women’s Clothing & Shoes","Miscellaneous"];
+const CONDITIONS = ["New","Used - like new","Used - good","Used - fair"];
+
+const state = {
+  items: [], current: null, tab: "capture",
+  settings: { style: "fair", currency: "USD", note: "", link: false, domain: "amazon.com", key: "", model: "claude-sonnet-5-5" },
+  orders: [], maxImages: 6, open: new Set()
+};
+
+/* ---------- storage (IndexedDB, falls back to memory) ---------- */
+const DB = (() => {
+  let p;
+  function open() {
+    if (!p) p = new Promise((res, rej) => {
+      const r = indexedDB.open("quicklist", 1);
+      r.onupgradeneeded = () => { const d = r.result; d.createObjectStore("items", { keyPath: "id" }); d.createObjectStore("kv"); };
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    });
+    return p;
+  }
+  async function tx(store, mode, fn) {
+    try {
+      const d = await open();
+      return await new Promise((res, rej) => {
+        const t = d.transaction(store, mode); const req = fn(t.objectStore(store)); let out;
+        if (req) req.onsuccess = () => { out = req.result; };
+        t.oncomplete = () => res(out); t.onerror = t.onabort = () => rej(t.error);
+      });
+    } catch (e) { console.warn("storage", e); return undefined; }
+  }
+  return {
+    all: () => tx("items", "readonly", s => s.getAll()),
+    put: it => tx("items", "readwrite", s => s.put(it)),
+    del: id => tx("items", "readwrite", s => s.delete(id)),
+    clear: () => tx("items", "readwrite", s => s.clear()),
+    get: k => tx("kv", "readonly", s => s.get(k)),
+    set: (k, v) => tx("kv", "readwrite", s => s.put(v, k)),
+  };
+})();
+const save = it => DB.put(it);
+const saveTimers = new Map();
+function saveSoon(it) { clearTimeout(saveTimers.get(it.id)); saveTimers.set(it.id, setTimeout(() => save(it), 400)); }
+
+/* ---------- helpers ---------- */
+const urls = new WeakMap();
+function urlOf(blob) { let u = urls.get(blob); if (!u) { u = URL.createObjectURL(blob); urls.set(blob, u); } return u; }
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+let toastT;
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 2400); }
+function money(n) {
+  if (n === "" || n == null || isNaN(n)) return "—";
+  const cur = (state.settings.currency || "USD").toUpperCase();
+  try { return new Intl.NumberFormat(undefined, { style: "currency", currency: cur, maximumFractionDigits: 0 }).format(n); }
+  catch { return Math.round(n) + " " + cur; }
+}
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch {}
+  const ta = document.createElement("textarea"); ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.select(); let ok = false; try { ok = document.execCommand("copy"); } catch {} ta.remove(); return ok;
+}
+async function shrink(file) {
+  try {
+    const bmp = await createImageBitmap(file, { imageOrientation: "from-image" });
+    const s = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement("canvas"); c.width = Math.round(bmp.width * s); c.height = Math.round(bmp.height * s);
+    c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height); bmp.close && bmp.close();
+    return await new Promise(r => c.toBlob(b => r(b || file), "image/jpeg", 0.85));
+  } catch { return file; }
+}
+function itemNumber(it) { return state.items.indexOf(it) + 1; }
+
+/* ---------- Amazon CSV ---------- */
+function parseCSV(text) {
+  const rows = []; let row = [], f = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"') q = true;
+    else if (c === ",") { row.push(f); f = ""; }
+    else if (c === "\n") { row.push(f); rows.push(row); row = []; f = ""; }
+    else if (c !== "\r") f += c;
+  }
+  if (f || row.length) { row.push(f); rows.push(row); }
+  return rows;
+}
+function ordersFromCSV(text) {
+  const rows = parseCSV(text.replace(/^\uFEFF/, "")); if (rows.length < 2) return [];
+  const h = rows[0].map(x => x.trim().toLowerCase());
+  const find = res => { for (const re of res) { const i = h.findIndex(x => re.test(x)); if (i >= 0) return i; } return -1; };
+  const iName = find([/^product name$/, /^title$/, /product name/, /item name/]);
+  const iAsin = find([/^asin$/, /asin/]);
+  const iDate = find([/^order date$/, /order date/]);
+  const iPrice = find([/^unit price$/, /purchase price per unit/, /item total/, /total owed/, /price/]);
+  if (iName < 0) return [];
+  const out = [];
+  for (const r of rows.slice(1)) {
+    const name = (r[iName] || "").trim(); if (!name) continue;
+    const price = parseFloat(String(r[iPrice] ?? "").replace(/[^0-9.]/g, ""));
+    const d = new Date(r[iDate] || ""); 
+    out.push({ name, asin: iAsin >= 0 ? (r[iAsin] || "").trim() : "", date: isNaN(d) ? "" : d.toISOString().slice(0, 10), price: isNaN(price) ? null : price });
+  }
+  return out;
+}
+function mergeOrders(list) {
+  const seen = new Map();
+  for (const o of [...state.orders, ...list]) { const k = o.asin || o.name; const prev = seen.get(k); if (!prev || (o.date > prev.date)) seen.set(k, o); }
+  return [...seen.values()].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+}
+
+/* ---------- AI ---------- */
+const STYLE = {
+  quick: "Price it to sell within a few days: toward the low end of local used prices.",
+  fair: "Price it at a typical local used price, leaving a little room to negotiate.",
+  high: "Price it at the upper end of local used prices; the seller can wait for the right buyer."
+};
+function buildPrompt(it) {
+  const s = state.settings;
+  const orders = state.orders.slice(0, 450);
+  let ordersBlock = "";
+  if (orders.length) {
+    ordersBlock = "\nThe seller's Amazon order history, most recent first (number. date | price paid | product name):\n" +
+      orders.map((o, i) => `${i + 1}. ${o.date || "?"} | ${o.price != null ? o.price : "?"} | ${o.name.slice(0, 120)}`).join("\n") +
+      "\n\nIf the item in the photos clearly is one of these products, set match to that number, use the product name for the exact brand and model, and base the price on the price paid and the item's age and condition. If you are not confident, set match to null.\n";
+  }
+  return `You are helping someone sell their own used belongings on Facebook Marketplace. The ${it.photos.length > 1 ? "attached photos all show ONE item" : "attached photo shows one item"}. Write a listing for it.
+
+Rules:
+- Identify the item as precisely as the photos allow (brand, model, size, color). Never invent specs you can't see or reliably infer.
+- condition: exactly one of ${CONDITIONS.map(c => `"${c}"`).join(", ")}. Judge from the photos; use "Used - good" if unclear.
+- Prices are whole numbers in ${s.currency || "USD"}. ${STYLE[s.style] || STYLE.fair} Give price plus a realistic low/high range.
+- title: under 70 characters, starting with brand and item type. No emoji, no all caps, no words like "WOW" or "L@@K".
+- description: 2 to 4 short plain sentences: what it is, key details, condition and any visible wear. No markdown, hashtags or emoji. Don't mention pickup or payment.
+- category: exactly one of ${CATEGORIES.map(c => `"${c}"`).join(", ")}.
+- check: one short sentence telling the seller what to verify before posting (e.g. a missing part, a model number you guessed), or "" if nothing.
+${ordersBlock}
+Reply with only this JSON:
+{"title": "", "price": 0, "price_low": 0, "price_high": 0, "condition": "", "category": "", "description": "", "check": "", "match": null}`;
+}
+function composeDescription(it) {
+  const L = it.listing, s = state.settings; let d = (L.baseDescription || "").trim();
+  if (s.link && L.match && L.match.asin) d += `\n\nOriginal product: https://www.${(s.domain || "amazon.com").replace(/^https?:\/\/(www\.)?/, "").replace(/\/.*$/, "")}/dp/${L.match.asin}`;
+  if (s.note.trim()) d += "\n\n" + s.note.trim();
+  return d;
+}
+const hasKey = () => !!state.settings.key.trim();
+class ApiError extends Error { constructor(msg, retry = true) { super(msg); this.retry = retry; } }
+async function toBase64(blob) {
+  const buf = new Uint8Array(await blob.arrayBuffer()); let bin = "";
+  for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+function parseJSON(text) {
+  try { return JSON.parse(text); } catch {}
+  const a = text.indexOf("{"), b = text.lastIndexOf("}");
+  if (a >= 0 && b > a) { try { return JSON.parse(text.slice(a, b + 1)); } catch {} }
+  throw new ApiError("The answer came back garbled. Tap Retry.");
+}
+async function callClaude(prompt, images, maxTokens = 1500) {
+  const content = [];
+  for (const b of images) {
+    const type = ["image/jpeg", "image/png", "image/webp", "image/gif"].includes(b.type) ? b.type : null;
+    if (type) content.push({ type: "image", source: { type: "base64", media_type: type, data: await toBase64(b) } });
+  }
+  if (images.length && !content.length) throw new ApiError("These photos are in a format Claude can’t read. Retake them in the app.", false);
+  content.push({ type: "text", text: prompt });
+  let res;
+  try {
+    res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": state.settings.key.trim(),
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({ model: state.settings.model, max_tokens: maxTokens, messages: [{ role: "user", content }] })
+    });
+  } catch { throw new ApiError("No connection. Tap Retry when you’re back online."); }
+  if (!res.ok) {
+    let msg = ""; try { msg = (await res.json()).error?.message || ""; } catch {}
+    if (res.status === 401 || res.status === 403) throw new ApiError("Your API key was rejected. Check it in Setup, then tap Retry.", false);
+    if (res.status === 429) throw new ApiError("Rate limit reached. Wait a minute, then tap Retry.");
+    if (res.status === 529 || res.status >= 500) throw new ApiError("Claude is busy right now. Tap Retry in a moment.");
+    if (/credit|billing|balance/i.test(msg)) throw new ApiError("Your API account is out of credit. Add credit at console.anthropic.com.", false);
+    throw new ApiError("Claude couldn’t process this item" + (msg ? `: ${msg}` : ".") );
+  }
+  const data = await res.json();
+  return (data.content || []).filter(c => c.type === "text").map(c => c.text).join("\n");
+}
+
+let running = false;
+async function pump() {
+  if (running) return;
+  const next = state.items.find(i => i.status === "queued");
+  if (!next || !hasKey()) { renderQueue(); return; }
+  running = true;
+  await generate(next);
+  running = false;
+  pump();
+}
+async function generate(it) {
+  it.status = "writing"; it.error = ""; save(it); renderAll();
+  try {
+    const r = parseJSON(await callClaude(buildPrompt(it), it.photos.slice(0, state.maxImages)));
+    const n = v => { const x = Math.round(Number(v)); return isFinite(x) && x >= 0 ? x : ""; };
+    const idx = Number(r.match);
+    const match = Number.isInteger(idx) && idx >= 1 && idx <= state.orders.length ? state.orders[idx - 1] : null;
+    it.listing = {
+      title: String(r.title || "").slice(0, 100),
+      price: n(r.price), low: n(r.price_low), high: n(r.price_high),
+      condition: CONDITIONS.includes(r.condition) ? r.condition : "Used - good",
+      category: CATEGORIES.includes(r.category) ? r.category : "Miscellaneous",
+      baseDescription: String(r.description || ""),
+      check: String(r.check || ""), match
+    };
+    it.listing.description = composeDescription(it);
+    it.status = "ready";
+    state.open.add(it.id);
+  } catch (e) {
+    it.status = "failed"; it.error = (e && e.message) || "Something went wrong. Tap Retry.";
+  }
+  save(it); renderAll();
+}
+function blankListing() { return { title: "", price: "", low: "", high: "", condition: "Used - good", category: "Miscellaneous", baseDescription: "", description: "", check: "", match: null }; }
+
+/* ---------- capture ---------- */
+function newCurrent() {
+  const it = { id: uid(), created: Date.now(), photos: [], status: "capturing", listing: null, error: "" };
+  state.items.push(it); state.current = it; save(it); return it;
+}
+async function addFiles(files) {
+  if (!files || !files.length) return;
+  const it = state.current || newCurrent();
+  for (const f of files) it.photos.push(await shrink(f));
+  save(it); renderCapture(); renderQueue();
+}
+function nextItem() {
+  const it = state.current; if (!it || !it.photos.length) return;
+  it.status = "queued"; save(it);
+  newCurrent();
+  renderCapture(); renderAll();
+  toast(hasKey() ? "Writing that listing in the background" : "Saved. Add your API key in Setup to write it");
+  window.scrollTo({ top: 0 });
+  pump();
+}
+
+/* ---------- render ---------- */
+function renderCapture() {
+  const it = state.current; const n = it ? itemNumber(it) : state.items.length + 1;
+  $("#itemHead").textContent = "Item " + n;
+  const c = it ? it.photos.length : 0;
+  $("#itemSub").textContent = c ? `${c} photo${c > 1 ? "s" : ""}. Add more, or move on to the next item.` : "Take 2–5 photos: front, back, labels, any wear.";
+  const box = $("#photos");
+  if (!c) { box.innerHTML = `<div class="empty">Take the first photo of this item.</div>`; }
+  else {
+    box.innerHTML = `<div class="grid">${it.photos.map((b, i) => `<div class="ph"><img src="${urlOf(b)}" alt="Photo ${i + 1}"><button aria-label="Remove photo ${i + 1}" data-rm="${i}">×</button></div>`).join("")}</div>`;
+  }
+  $("#nextBtn").disabled = !c;
+}
+function renderQueue() {
+  const w = state.items.filter(i => i.status === "queued" || i.status === "writing").length;
+  const ready = state.items.filter(i => i.status === "ready").length;
+  let t = "";
+  if (w) t = hasKey() ? `Writing ${w} listing${w > 1 ? "s" : ""}…` : `${w} waiting. Add your API key in Setup.`;
+  else if (ready) t = `${ready} listing${ready > 1 ? "s" : ""} ready to post`;
+  $("#queueNote").textContent = t;
+  const total = state.items.filter(i => i.status !== "capturing").length;
+  $("#listTab").textContent = total ? `Listings (${total})` : "Listings";
+  $("#aiState").textContent = hasKey() ? "" : "Add API key in Setup";
+}
+function cardHTML(it) {
+  const L = it.listing; const photo = it.photos[0] ? urlOf(it.photos[0]) : "";
+  let sticker, meta;
+  if (it.status === "queued" || it.status === "writing") {
+    sticker = `<span class="sticker pending dots">${it.status === "writing" ? "Pricing" : "Queued"}</span>`;
+    meta = `<div class="ctitle">Item ${itemNumber(it)}</div><div class="cmeta">${it.photos.length} photos. ${it.status === "writing" ? "Claude is writing this listing" : hasKey() ? "Waiting its turn" : "Waiting for your API key"}</div>`;
+  } else if (it.status === "failed") {
+    sticker = `<span class="sticker pending">—</span>`;
+    meta = `<div class="ctitle">Item ${itemNumber(it)}</div><div class="cmeta err">${esc(it.error)}</div>`;
+  } else {
+    sticker = `<span class="sticker">${esc(money(L.price))}</span>`;
+    const sub = it.status === "posted" ? `<div class="cmeta ok">Posted</div>` : `<div class="cmeta">${esc(L.condition)}, ${esc(L.category)}</div>`;
+    meta = `<div class="ctitle">${esc(L.title || "Untitled item " + itemNumber(it))}</div>${sub}`;
+  }
+  const open = state.open.has(it.id) ? " open" : "";
+  let body = `<div class="strip">${it.photos.map((b, i) => `<img src="${urlOf(b)}" alt="Photo ${i + 1}">`).join("")}</div>`;
+  if (it.status === "failed") {
+    body += `<div class="actions"><button class="btn small primary" data-act="retry">Retry</button><button class="btn small" data-act="manual">Write it myself</button><button class="btn small danger" data-act="delete">Delete</button></div>`;
+  } else if (it.status === "ready" || it.status === "posted") {
+    const range = (L.low !== "" && L.high !== "") ? `Similar items usually sell for ${esc(money(L.low))} to ${esc(money(L.high))}.` : "";
+    body += `
+      ${L.match ? `<div class="match">Matched your Amazon order: ${esc(L.match.name.slice(0, 90))}${L.match.price != null ? `, paid ${esc(money(L.match.price))}` : ""}${L.match.date ? ` on ${esc(L.match.date)}` : ""}.${L.match.asin ? ` <a href="https://www.${esc((state.settings.domain || "amazon.com").replace(/^https?:\/\/(www\.)?/, "").replace(/\/.*$/, ""))}/dp/${esc(L.match.asin)}" target="_blank" rel="noopener">View on Amazon</a>` : ""}</div>` : ""}
+      ${L.check ? `<div class="note"><strong>Check before posting:</strong> ${esc(L.check)}</div>` : ""}
+      <div class="field"><label for="t-${it.id}">Title <button class="copy" data-copy="title">Copy</button></label><input id="t-${it.id}" data-f="title" value="${esc(L.title)}" maxlength="100"></div>
+      <div class="two">
+        <div class="field"><label for="p-${it.id}">Price <button class="copy" data-copy="price">Copy</button></label><input id="p-${it.id}" data-f="price" inputmode="numeric" value="${esc(L.price)}"></div>
+        <div class="field"><label for="c-${it.id}">Condition</label><select id="c-${it.id}" data-f="condition">${CONDITIONS.map(c => `<option${c === L.condition ? " selected" : ""}>${esc(c)}</option>`).join("")}</select></div>
+      </div>
+      ${range ? `<div class="note">${range}</div>` : ""}
+      <div class="field"><label for="k-${it.id}">Category</label><select id="k-${it.id}" data-f="category">${CATEGORIES.map(c => `<option${c === L.category ? " selected" : ""}>${esc(c)}</option>`).join("")}</select></div>
+      <div class="field"><label for="d-${it.id}">Description <button class="copy" data-copy="description">Copy</button></label><textarea id="d-${it.id}" data-f="description">${esc(L.description)}</textarea></div>
+      <div class="actions">
+        <button class="btn small primary" data-act="photos">Save photos</button>
+        <button class="btn small" data-act="posted">${it.status === "posted" ? "Mark not posted" : "Mark posted"}</button>
+        <button class="btn small" data-act="retry">Rewrite</button>
+        <button class="btn small danger" data-act="delete">Delete</button>
+      </div>`;
+  }
+  return `<details class="card${it.status === "posted" ? " posted" : ""}" data-id="${it.id}"${open}><summary>${photo ? `<img class="thumb" src="${photo}" alt="">` : `<div class="thumb"></div>`}<div>${meta}</div>${sticker}</summary><div class="body">${body}</div></details>`;
+}
+function renderListings() {
+  const list = state.items.filter(i => i.status !== "capturing").slice().reverse();
+  const order = { failed: 0, ready: 1, writing: 2, queued: 3, posted: 4 };
+  list.sort((a, b) => (order[a.status] - order[b.status]) || (b.created - a.created));
+  $("#cards").innerHTML = list.length ? list.map(cardHTML).join("") : `<div class="empty">No listings yet. Photograph an item on the Capture tab, then tap Next item.</div>`;
+  const cur = state.current;
+  $("#pendingBanner").innerHTML = cur && cur.photos.length
+    ? `<div class="banner"><span>Item ${itemNumber(cur)} has ${cur.photos.length} photo${cur.photos.length > 1 ? "s" : ""} and isn’t written yet.</span><button class="btn small primary" id="finishCur">Write it</button></div>` : "";
+}
+function renderAll() { renderQueue(); renderListings(); }
+
+function setTab(t) {
+  state.tab = t;
+  document.querySelectorAll(".tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === t)));
+  for (const id of ["capture", "listings", "setup"]) $("#" + id).hidden = id !== t;
+  $("#bar").hidden = t !== "capture";
+  $("main").style.paddingBottom = t === "capture" ? "120px" : "40px";
+  if (t === "listings") renderListings();
+  window.scrollTo({ top: 0 });
+}
+
+/* ---------- events ---------- */
+document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => setTab(b.dataset.tab));
+$("#camIn").onchange = e => { addFiles([...e.target.files]); e.target.value = ""; };
+$("#galIn").onchange = e => { addFiles([...e.target.files]); e.target.value = ""; };
+$("#photos").onclick = e => {
+  const b = e.target.closest("[data-rm]"); if (!b || !state.current) return;
+  state.current.photos.splice(Number(b.dataset.rm), 1); save(state.current); renderCapture();
+};
+$("#nextBtn").onclick = nextItem;
+$("#pendingBanner").onclick = e => { if (e.target.id === "finishCur") nextItem(); };
+
+const findItem = el => { const c = el.closest(".card"); return c && state.items.find(i => i.id === c.dataset.id); };
+$("#cards").addEventListener("toggle", e => {
+  const it = findItem(e.target); if (!it) return;
+  e.target.open ? state.open.add(it.id) : state.open.delete(it.id);
+}, true);
+$("#cards").addEventListener("input", e => {
+  const f = e.target.dataset.f; const it = findItem(e.target); if (!f || !it || !it.listing) return;
+  let v = e.target.value;
+  if (f === "price") { v = v.replace(/[^0-9]/g, ""); e.target.value = v; v = v === "" ? "" : Number(v); }
+  it.listing[f] = v;
+  if (f === "description") it.listing.baseDescription = v, it.listing.descEdited = true;
+  saveSoon(it);
+  const card = e.target.closest(".card");
+  if (f === "title") card.querySelector(".ctitle").textContent = v || "Untitled item " + itemNumber(it);
+  if (f === "price") card.querySelector(".sticker").textContent = money(v);
+});
+$("#cards").addEventListener("click", async e => {
+  const it = findItem(e.target); if (!it) return;
+  const cp = e.target.closest("[data-copy]");
+  if (cp) {
+    e.preventDefault();
+    const k = cp.dataset.copy; const v = String(it.listing[k] ?? "");
+    toast(await copyText(v) ? `${k[0].toUpperCase() + k.slice(1)} copied` : "Copy blocked here. Long-press the field to copy.");
+    return;
+  }
+  const a = e.target.closest("[data-act]"); if (!a) return;
+  const act = a.dataset.act;
+  if (act === "retry") { it.status = "queued"; it.error = ""; save(it); renderAll(); pump(); }
+  else if (act === "manual") { it.status = "ready"; it.listing = blankListing(); state.open.add(it.id); save(it); renderAll(); }
+  else if (act === "posted") { it.status = it.status === "posted" ? "ready" : "posted"; if (it.status === "posted") state.open.delete(it.id); save(it); renderAll(); }
+  else if (act === "delete") {
+    if (!confirm("Delete this item and its photos?")) return;
+    state.items = state.items.filter(i => i !== it); DB.del(it.id); renderAll(); renderCapture();
+  }
+  else if (act === "photos") savePhotos(it);
+});
+
+async function savePhotos(it) {
+  const base = (it.listing.title || "item").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "item";
+  const files = it.photos.map((b, i) => new File([b], `${base}-${i + 1}.jpg`, { type: "image/jpeg" }));
+  try {
+    if (navigator.canShare && navigator.canShare({ files })) { await navigator.share({ files }); return; }
+  } catch (e) { if (e && e.name === "AbortError") return; }
+  for (const f of files) {
+    const a = document.createElement("a"); a.href = URL.createObjectURL(f); a.download = f.name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    await new Promise(r => setTimeout(r, 350));
+  }
+  toast("Photos saved to Downloads");
+}
+
+/* setup */
+function bindSetting(id, key, prop = "value", cb) {
+  const el = $(id); el[prop] = state.settings[key];
+  el.addEventListener(prop === "checked" ? "change" : "input", () => {
+    state.settings[key] = el[prop]; DB.set("settings", state.settings);
+    if (cb) cb();
+  });
+}
+function refreshDescriptions() {
+  for (const it of state.items) if (it.listing && !it.listing.descEdited && !it.listing.manual) { it.listing.description = composeDescription(it); saveSoon(it); }
+  if (state.tab === "listings") renderListings();
+}
+function renderOrders() {
+  const n = state.orders.length;
+  $("#csvState").textContent = n ? `${n} products loaded${n > 450 ? ". Claude sees the 450 most recent." : "."}` : "No orders loaded.";
+  $("#csvClear").hidden = !n;
+}
+$("#csvIn").onchange = async e => {
+  let added = [];
+  for (const f of e.target.files) { try { added = added.concat(ordersFromCSV(await f.text())); } catch {} }
+  e.target.value = "";
+  if (!added.length) { toast("No products found. Pick the order history CSV."); return; }
+  state.orders = mergeOrders(added); DB.set("orders", state.orders); renderOrders(); toast(`${added.length} order lines read`);
+};
+$("#csvClear").onclick = () => { state.orders = []; DB.set("orders", []); renderOrders(); };
+$("#wipe").onclick = async () => {
+  if (!confirm("Delete every item and photo in Quicklist?")) return;
+  await DB.clear(); state.items = []; state.current = null; newCurrent(); renderCapture(); renderAll(); toast("All items deleted");
+};
+
+/* ---------- init ---------- */
+async function init() {
+  const s = await DB.get("settings"); if (s) Object.assign(state.settings, s);
+  state.orders = (await DB.get("orders")) || [];
+  const items = ((await DB.all()) || []).sort((a, b) => a.created - b.created);
+  for (const it of items) if (it.status === "writing") { it.status = "queued"; save(it); }
+  state.items = items;
+  const caps = items.filter(i => i.status === "capturing");
+  state.current = caps.pop() || null;
+  for (const extra of caps) if (!extra.photos.length) { state.items = state.items.filter(i => i !== extra); DB.del(extra.id); }
+  if (!state.current) newCurrent();
+
+  bindSetting("#sKey", "key", "value", () => { $("#keyState").textContent = ""; renderAll(); pump(); });
+  bindSetting("#sModel", "model");
+  bindSetting("#sStyle", "style");
+  bindSetting("#sCur", "currency", "value", () => { if (state.tab === "listings") renderListings(); });
+  bindSetting("#sNote", "note", "value", refreshDescriptions);
+  bindSetting("#sLink", "link", "checked", refreshDescriptions);
+  bindSetting("#sDomain", "domain", "value", refreshDescriptions);
+  renderOrders(); renderCapture(); renderAll();
+
+  renderAll(); pump();
+}
+$("#keyTest").onclick = async () => {
+  const st = $("#keyState");
+  if (!hasKey()) { st.textContent = "Paste your API key first."; return; }
+  st.textContent = "Testing…";
+  try { await callClaude("Reply with the word ok.", [], 10); st.textContent = "Key works. You’re ready to list."; }
+  catch (e) { st.textContent = e.message; }
+};
+if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+init();
+})();
+</script>
+</body>
+</html>
