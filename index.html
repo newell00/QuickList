@@ -158,6 +158,8 @@ label.btn:focus-within{ outline:3px solid var(--brand); outline-offset:2px; }
 
 .crow{ display:grid; grid-template-columns:64px 1fr auto; gap:12px; align-items:center; padding:12px; }
 .hintf{ margin-top:12px; }
+.card .body{ padding:0 12px 14px; display:flex; flex-direction:column; gap:12px; }
+.crow .actions .btn{ padding:6px 10px; }
 .hintf label .opt{ font-weight:400; }
 .cmeta.ok{ font-weight:600; }
 </style>
@@ -198,7 +200,8 @@ label.btn:focus-within{ outline:3px solid var(--brand); outline-offset:2px; }
 
   <section id="items" hidden>
     <h2>Items</h2>
-    <p class="sub">Your computer writes each listing. Edit and post them from the Quicklist Chrome extension.</p>
+    <p class="sub">Your computer writes each listing. Edit them here or in the Chrome extension, and post from the extension.</p>
+    <div class="tabs" role="tablist" style="margin:0 0 12px"><button role="tab" id="viewTodo" aria-selected="true">To post</button><button role="tab" id="viewPosted" aria-selected="false">Posted</button></div>
     <div id="pendingBanner"></div>
     <div class="cards" id="cards"></div>
   </section>
@@ -366,16 +369,17 @@ const Sync = {
   async pull() {
     if (!this.on()) return;
     try {
-      const rows = await (await this.req("/rest/v1/listings?select=id,status,title,price,posted,error")).json();
+      const rows = await (await this.req("/rest/v1/listings?select=id,status,title,price,posted,error,description,condition,category,amazon_url,check_note,retail_price,retail_source,order_name")).json();
       const byId = new Map(rows.map(r => [r.id, r]));
       let changed = false;
       for (const it of [...state.items]) {
         if (it.state !== "uploaded") continue;
         const r = byId.get(it.id);
         if (!r) { if (Date.now() - (it.uploadedAt || 0) > 15000) { state.items = state.items.filter(x => x !== it); DB.del(it.id); changed = true; } continue; } // deleted on the computer
+        if (editing.has(it.id) || pendingEdits.has(it.id)) continue;   // you're editing it on this phone
         if (JSON.stringify(it.remote) !== JSON.stringify(r)) { it.remote = r; DB.put(it); changed = true; }
       }
-      if (changed) { renderItems(); renderCapture(); }
+      if (changed) { renderItems(true); renderCapture(); }
     } catch {}
   },
   remove(it) {
@@ -477,26 +481,71 @@ function stage(it) {
   if (it.state === "queued") return { text: Sync.on() ? (it.sent ? `Sending photos ${it.sent} of ${it.photos.length}…` : "Sending…") : "Waiting to send (connect in Setup)", kind: "" };
   const r = it.remote || {};
   if (r.posted) return { text: "Posted", kind: "ok" };
-  if (r.status === "ready") return { text: "Ready to post on your computer", kind: "ok" };
+  if (r.status === "ready") return { text: `${r.condition || "Ready"}${r.category ? ", " + r.category : ""}`, kind: "" };
   if (r.status === "writing") return { text: "Being written on your computer…", kind: "" };
   if (r.status === "failed") return { text: "Couldn’t be written. Retry it in the extension.", kind: "err" };
   return { text: "Waiting for your computer", kind: "" };
 }
-function renderItems() {
-  const list = state.items.filter(i => i.state !== "capturing").slice().reverse();
-  $("#itemsTab").textContent = list.length ? `Items (${list.length})` : "Items";
-  $("#cards").innerHTML = list.length ? list.map(it => {
-    const st = stage(it), r = it.remote || {};
-    const title = r.title || (it.hint ? it.hint[0].toUpperCase() + it.hint.slice(1) : `Item ${itemNumber(it)}`);
-    return `<article class="card${r.posted ? " posted" : ""}" data-id="${it.id}"><div class="crow">
+const CATEGORIES = ["Tools", "Furniture", "Household", "Garden", "Appliances", "Video Games", "Books, Movies & Music", "Bags & Luggage", "Women’s Clothing & Shoes", "Men’s Clothing & Shoes", "Jewelry & Accessories", "Health & Beauty", "Pet Supplies", "Baby & Kids", "Toys & Games", "Electronics & Computers", "Mobile Phones", "Bicycles", "Arts & Crafts", "Sports & Outdoors", "Auto Parts", "Musical Instruments", "Antiques & Collectibles", "Garage Sale", "Miscellaneous"];
+const CONDITIONS = ["New", "Used - like new", "Used - good", "Used - fair"];
+const editing = new Set(), pendingEdits = new Map(), editTimers = new Map();
+let itemsView = "todo";
+const opt = (list, cur) => list.map(c => `<option${c === cur ? " selected" : ""}>${esc(c)}</option>`).join("");
+const isReady = it => it.state === "uploaded" && it.remote && it.remote.status === "ready";
+function itemCard(it) {
+  const st = stage(it), r = it.remote || {};
+  const title = r.title || (it.hint ? it.hint[0].toUpperCase() + it.hint.slice(1) : `Item ${itemNumber(it)}`);
+  const ready = isReady(it), open = editing.has(it.id);
+  const acts = `<div class="actions" style="margin-top:8px">
+      ${ready ? `<button class="btn small" data-act="edit">${open ? "Close" : "Edit"}</button><button class="btn small" data-act="posted">${r.posted ? "Not posted" : "Mark posted"}</button>` : ""}
+      <button class="btn small danger" data-act="del">Delete</button></div>`;
+  const edit = ready && open ? `<div class="body" style="padding-top:4px">
+      ${r.order_name ? `<div class="match">Matched your order: ${esc(r.order_name.slice(0, 90))}</div>` : ""}
+      ${r.check_note ? `<div class="note"><strong>Check before posting:</strong> ${esc(r.check_note)}</div>` : ""}
+      <div class="field"><label for="t-${it.id}">Title</label><input id="t-${it.id}" data-f="title" maxlength="100" value="${esc(r.title || "")}"></div>
+      <div class="two">
+        <div class="field"><label for="p-${it.id}">Price ${r.retail_price ? `<span>${r.retail_source === "amazon" ? "Amazon" : "Est."} ${esc(money(r.retail_price))}</span>` : ""}</label><input id="p-${it.id}" data-f="price" inputmode="numeric" value="${esc(r.price ?? "")}"></div>
+        <div class="field"><label for="c-${it.id}">Condition</label><select id="c-${it.id}" data-f="condition">${opt(CONDITIONS, r.condition)}</select></div>
+      </div>
+      <div class="field"><label for="k-${it.id}">Category</label><select id="k-${it.id}" data-f="category">${opt(CATEGORIES, r.category)}</select></div>
+      <div class="field"><label for="d-${it.id}">Description</label><textarea id="d-${it.id}" data-f="description">${esc(r.description || "")}</textarea></div>
+      <div class="field"><label for="a-${it.id}">Amazon link ${r.amazon_url ? `<a class="copy" href="${esc(r.amazon_url)}" target="_blank" rel="noopener">Open</a>` : ""}</label><input id="a-${it.id}" data-f="amazon_url" inputmode="url" value="${esc(r.amazon_url || "")}" placeholder="Paste a link if Quicklist didn’t find one"></div>
+      <button class="btn primary big" data-act="done">Done</button>
+    </div>` : "";
+  return `<article class="card${r.posted ? " posted" : ""}" data-id="${it.id}"><div class="crow">
       ${it.photos[0] ? `<img class="thumb" src="${urlOf(it.photos[0])}" alt="">` : `<div class="thumb"></div>`}
-      <div><div class="ctitle">${esc(title)}</div><div class="cmeta ${st.kind}">${esc(st.text)}</div></div>
-      ${r.price != null && r.status === "ready" ? `<span class="sticker">${esc(money(r.price))}</span>` : `<button class="btn small danger" data-del aria-label="Delete item">Delete</button>`}
-    </div></article>`;
-  }).join("") : `<div class="empty">No items yet. Photograph something on the Capture tab, then tap Next item.</div>`;
+      <div><div class="ctitle">${esc(title)}</div><div class="cmeta ${st.kind}">${esc(st.text)}</div>${acts}</div>
+      ${r.price != null && ready ? `<span class="sticker">${esc(money(r.price))}</span>` : `<span></span>`}
+    </div>${edit}</article>`;
+}
+function renderItems(fromSync) {
+  const all = state.items.filter(i => i.state !== "capturing");
+  const posted = all.filter(i => i.remote && i.remote.posted), todo = all.filter(i => !(i.remote && i.remote.posted));
+  $("#itemsTab").textContent = todo.length ? `Items (${todo.length})` : "Items";
+  $("#viewTodo").textContent = `To post (${todo.length})`; $("#viewPosted").textContent = `Posted (${posted.length})`;
+  $("#viewTodo").setAttribute("aria-selected", String(itemsView === "todo")); $("#viewPosted").setAttribute("aria-selected", String(itemsView === "posted"));
+  const list = (itemsView === "posted" ? posted : todo).slice().reverse();
+  // Don't redraw the listing you're typing in.
+  const focused = document.activeElement && document.activeElement.closest && document.activeElement.closest(".card");
+  if (fromSync && focused) {
+    for (const it of list) { const el = document.querySelector(`.card[data-id="${CSS.escape(it.id)}"]`); if (el && el !== focused) el.outerHTML = itemCard(it); }
+  } else {
+    $("#cards").innerHTML = list.length ? list.map(itemCard).join("")
+      : `<div class="empty">${itemsView === "posted" ? "Nothing posted yet." : posted.length ? "Nothing left to post. Nice work." : "No items yet. Photograph something on the Capture tab, then tap Next item."}</div>`;
+  }
   const cur = state.current;
   $("#pendingBanner").innerHTML = cur && cur.photos.length
     ? `<div class="banner"><span>Item ${itemNumber(cur)} has ${cur.photos.length} photo${cur.photos.length > 1 ? "s" : ""} and hasn’t been sent.</span><button class="btn small primary" id="finishCur">Send it</button></div>` : "";
+}
+// Save edits straight to your Supabase project (free; the extension picks them up).
+async function saveEdits(id) {
+  clearTimeout(editTimers.get(id));
+  const fields = pendingEdits.get(id); if (!fields) return;
+  pendingEdits.delete(id);
+  try {
+    await Sync.req(`/rest/v1/listings?id=eq.${encodeURIComponent(id)}`, { method: "PATCH", headers: { "content-type": "application/json", Prefer: "return=minimal" }, body: JSON.stringify({ ...fields, updated_at: new Date().toISOString() }) });
+    toast("Saved");
+  } catch (e) { toast("Couldn’t save: " + e.message); pendingEdits.set(id, { ...fields, ...(pendingEdits.get(id) || {}) }); }
 }
 function setTab(t) {
   state.tab = t;
@@ -519,12 +568,47 @@ $("#nextBtn").onclick = nextItem;
 $("#shutter").onclick = snap;
 $("#camRetry").onclick = () => { stopCamera(); startCamera(); };
 $("#pendingBanner").onclick = e => { if (e.target.id === "finishCur") nextItem(); };
-$("#cards").onclick = e => {
-  const b = e.target.closest("[data-del]"); if (!b) return;
-  const it = state.items.find(i => i.id === b.closest(".card").dataset.id); if (!it) return;
-  if (!confirm("Delete this item? It’s removed from your computer too.")) return;
-  state.items = state.items.filter(i => i !== it); Sync.remove(it); DB.del(it.id); renderItems(); renderCapture();
-};
+$("#cards").addEventListener("input", e => {
+  const f = e.target.dataset.f; if (!f) return;
+  const it = state.items.find(i => i.id === e.target.closest(".card").dataset.id); if (!it || !it.remote) return;
+  let v = e.target.value;
+  if (f === "price") { v = v.replace(/[^0-9]/g, ""); e.target.value = v; v = v === "" ? null : Number(v); }
+  if (f === "amazon_url") v = v.trim() || null;
+  it.remote[f] = v; DB.put(it);
+  pendingEdits.set(it.id, { ...(pendingEdits.get(it.id) || {}), [f]: v });
+  clearTimeout(editTimers.get(it.id)); editTimers.set(it.id, setTimeout(() => saveEdits(it.id), 800));
+  if (f === "title" || f === "price") {
+    const card = e.target.closest(".card");
+    if (f === "title") card.querySelector(".ctitle").textContent = v || "";
+    const st = card.querySelector(".sticker"); if (f === "price" && st) st.textContent = money(v);
+  }
+});
+$("#cards").addEventListener("change", e => { if (e.target.tagName === "SELECT" && e.target.dataset.f) e.target.dispatchEvent(new Event("input", { bubbles: true })); });
+$("#cards").addEventListener("click", async e => {
+  if (e.target.closest("a")) return;
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  const card = b.closest(".card"), it = state.items.find(i => i.id === card.dataset.id); if (!it) return;
+  const act = b.dataset.act;
+  if (act === "edit") { editing.has(it.id) ? (editing.delete(it.id), await saveEdits(it.id)) : editing.add(it.id); renderItems(); }
+  else if (act === "done") {
+    editing.delete(it.id); await saveEdits(it.id); renderItems();
+    const el = document.querySelector(`.card[data-id="${CSS.escape(it.id)}"]`);
+    if (el) el.scrollIntoView({ block: "start", behavior: "smooth" });
+  }
+  else if (act === "posted") {
+    const v = !(it.remote && it.remote.posted);
+    try {
+      await Sync.req(`/rest/v1/listings?id=eq.${encodeURIComponent(it.id)}`, { method: "PATCH", headers: { "content-type": "application/json", Prefer: "return=minimal" }, body: JSON.stringify({ posted: v, updated_at: new Date().toISOString() }) });
+      it.remote.posted = v; editing.delete(it.id); DB.put(it); renderItems(); toast(v ? "Marked posted" : "Moved back to To post");
+    } catch (err) { toast("Couldn’t update: " + err.message); }
+  }
+  else if (act === "del") {
+    if (!confirm("Delete this item? It’s removed from your computer too.")) return;
+    state.items = state.items.filter(i => i !== it); Sync.remove(it); DB.del(it.id); renderItems(); renderCapture();
+  }
+});
+$("#viewTodo").onclick = () => { itemsView = "todo"; renderItems(); };
+$("#viewPosted").onclick = () => { itemsView = "posted"; renderItems(); };
 $("#wipe").onclick = async () => {
   if (!confirm("Clear every item on this phone? Items already sent stay on your computer.")) return;
   await DB.clear(); state.items = []; state.current = null; newCurrent(); renderCapture(); renderItems(); toast("This phone is cleared");

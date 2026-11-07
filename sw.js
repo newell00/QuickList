@@ -1,5 +1,5 @@
 // Caches the app files so Quicklist opens fast and works offline.
-const VERSION = "quicklist-2.0.0";
+const VERSION = "quicklist-2.1.0";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "apple-touch-icon.png", "quicklist-icon.svg"];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
