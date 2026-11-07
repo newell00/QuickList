@@ -559,7 +559,7 @@ ${ordersBlock}
 3. Asking price: price is ${STYLE[s.style] || STYLE.fair}. Go lower if the photos show wear. Round to a friendly number (ending in 0 or 5 above 20). Give a realistic price_low and price_high around it.
 
 4. Write:
-- title: under 70 characters, brand then what it is, in plain words. No emoji, all caps or hype.
+- title: under 70 characters, in the form "<what it is, in plain words, plus its key spec> - <brand and model>". Examples: "Dashcam 4K front and rear - Vantrue Sonnet S1 Pro Max", "OBD2 diagnostic scanner - LAUNCH Creader Elite V3 G". If the brand or model is unknown, leave out the part after the dash. No emoji, all caps or hype.
 - description: how a regular person writes a Marketplace post: first person, casual and friendly, 2 to 4 short sentences. Say what it is in plain words and the one or two details a buyer cares about (size, what's included, what it's for)${story ? `. Work in this backstory, in your own words and without adding to it: "${story}"` : ""}. If the photos show clear use or wear, say so honestly${story ? " and don't call it unused" : ""}. No hype, emoji, hashtags, bullet points or markdown. Don't mention price, pickup, payment or links.
 - condition: exactly one of ${CONDITIONS.map(c => `"${c}"`).join(", ")}. "New" only if it looks unused (open box is fine).
 - category: exactly one of ${CATEGORIES.map(c => `"${c}"`).join(", ")}.
@@ -974,6 +974,13 @@ async function init() {
   bindSetting("#sDomain", "domain", "value", refreshDescriptions);
   renderOrders(); renderCapture(); renderAll();
 
+  if (!Sync.cfg) {
+    // Optional sync-config.json next to index.html fills in the connection details.
+    try {
+      const c = await (await fetch("sync-config.json", { cache: "no-store" })).json();
+      if (c && c.url && c.key) Sync.cfg = { url: String(c.url).replace(/\/+$/, ""), key: c.key, email: c.email || "" };
+    } catch {}
+  }
   if (Sync.cfg) { $("#sbUrl").value = Sync.cfg.url || ""; $("#sbKey").value = Sync.cfg.key || ""; $("#sbEmail").value = Sync.cfg.email || ""; }
   renderSyncState(); renderAll(); pump();
   if (Sync.on()) { Sync.queueAll(); if (Sync.deletes.length) Sync.schedule(500); Sync.pullPosted(); }

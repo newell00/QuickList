@@ -37,6 +37,31 @@ into Facebook Marketplace. Only you can see your listings and photos.
 4. Click the puzzle-piece icon in the toolbar and pin **Quicklist for Marketplace**.
 5. Click its icon to open the side panel, and connect with the same four details.
 
+## Never re-enter the connection details
+
+Both the app and the extension remember the connection by themselves. To keep it
+that way when you update:
+
+- **Extension:** unzip each update over the same folder (replace the files), then
+  click the reload arrow in `chrome://extensions`. Don't remove the extension and
+  load it again.
+- **Phone app:** just upload the changed files to GitHub. You only need to remove and
+  re-add the home-screen icon when the icon itself changes.
+
+As a backup, for when something does get reset:
+
+- **Phone app:** in your GitHub repository, click **Add file** → **Create new file**,
+  name it `sync-config.json`, and paste in the contents of `sync-config.example.json`
+  with your Project URL, publishable key and email filled in. Never put your
+  password in this file: the repository is public. (The URL and publishable key are
+  designed to be public; your data stays protected by your login.) Quicklist then
+  fills those in itself, and you only type your password. Update zips don't include
+  this file, so uploading new versions never overwrites it.
+- **Extension:** in the extension folder, copy `sync-config.example.json` to
+  `sync-config.json` and fill it in. This file stays on your computer, so the
+  password line is optional: with it, the extension signs itself in. Update zips
+  don't include this file either.
+
 ## Using it
 
 - **One listing:** on Facebook, open Marketplace → **Create new listing** →
