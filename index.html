@@ -264,6 +264,21 @@ label.btn:focus-within{ outline:3px solid var(--brand); outline-offset:2px; }
     </div>
 
     <div class="panel">
+      <h3>Sync to your computer</h3>
+      <p>Sends finished listings and photos to your own Supabase project, where the Quicklist Chrome extension picks them up. Do the one-time setup in SETUP-SYNC first.</p>
+      <div class="field"><label for="sbUrl">Project URL</label><input id="sbUrl" inputmode="url" autocapitalize="off" spellcheck="false" placeholder="https://abcd1234.supabase.co"></div>
+      <div class="field"><label for="sbKey">Publishable key</label><input id="sbKey" autocapitalize="off" spellcheck="false" placeholder="sb_publishable_..."></div>
+      <div class="field"><label for="sbEmail">Email</label><input id="sbEmail" type="email" autocapitalize="off"></div>
+      <div class="field" id="sbPassWrap"><label for="sbPass">Password</label><input id="sbPass" type="password" autocomplete="current-password"></div>
+      <div class="actions">
+        <button class="btn small primary" id="sbConnect">Connect</button>
+        <button class="btn small" id="sbNow" hidden>Sync now</button>
+        <button class="btn small danger" id="sbOff" hidden>Disconnect</button>
+      </div>
+      <p class="note" id="syncState" style="margin:10px 0 0">Not connected.</p>
+    </div>
+
+    <div class="panel">
       <h3>Install on your phone</h3>
       <p>In Chrome, open the ⋮ menu and choose Add to Home screen (or Install app). Quicklist then opens full screen like any other app.</p>
     </div>
@@ -334,9 +349,104 @@ const DB = (() => {
     set: (k, v) => tx("kv", "readwrite", s => s.put(v, k)),
   };
 })();
-const save = it => DB.put(it);
+const save = it => { if (it.listing && (it.status === "ready" || it.status === "posted")) Sync.dirty(it); return DB.put(it); };
 const saveTimers = new Map();
 function saveSoon(it) { clearTimeout(saveTimers.get(it.id)); saveTimers.set(it.id, setTimeout(() => save(it), 400)); }
+
+/* ---------- sync (Supabase) ---------- */
+const Sync = {
+  cfg: null, pending: new Set(), deletes: [], busy: false, timer: 0, error: "", count: 0,
+  on() { return !!(this.cfg && this.cfg.refresh); },
+  async load() { this.cfg = (await DB.get("sync")) || null; this.deletes = (await DB.get("syncDeletes")) || []; },
+  async auth(body, grant) {
+    const r = await fetch(`${this.cfg.url}/auth/v1/token?grant_type=${grant}`, { method: "POST", headers: { apikey: this.cfg.key, "content-type": "application/json" }, body: JSON.stringify(body) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { const e = new Error(j.error_description || j.msg || j.message || `Sign-in failed (${r.status})`); e.auth = true; throw e; }
+    Object.assign(this.cfg, { access: j.access_token, refresh: j.refresh_token, exp: Date.now() + (j.expires_in || 3600) * 1000 - 60000, uid: (j.user && j.user.id) || this.cfg.uid });
+    await DB.set("sync", this.cfg);
+  },
+  async token() { if (!this.cfg.access || Date.now() > this.cfg.exp) await this.auth({ refresh_token: this.cfg.refresh }, "refresh_token"); return this.cfg.access; },
+  async req(path, opts = {}) {
+    const t = await this.token();
+    const r = await fetch(this.cfg.url + path, { ...opts, headers: { apikey: this.cfg.key, Authorization: `Bearer ${t}`, ...(opts.headers || {}) } });
+    if (!r.ok) { const m = await r.text().catch(() => ""); throw new Error(`${r.status} ${m.slice(0, 160)}`); }
+    return r;
+  },
+  dirty(it) { if (!this.on()) return; this.pending.add(it.id); this.schedule(); },
+  remove(it) { if (!this.on() || !it.syncedAt) return; this.deletes.push({ id: it.id, n: it.photos.length }); DB.set("syncDeletes", this.deletes); this.schedule(); },
+  schedule(ms = 1500) { clearTimeout(this.timer); this.timer = setTimeout(() => this.flush(), ms); },
+  async push(it) {
+    const uid = this.cfg.uid, L = it.listing;
+    const paths = it.photos.map((_, i) => `${uid}/${it.id}/${i + 1}.jpg`);
+    if (it.syncedPhotos !== it.photos.length) {
+      for (let i = 0; i < it.photos.length; i++)
+        await this.req(`/storage/v1/object/photos/${paths[i]}`, { method: "POST", headers: { "content-type": it.photos[i].type || "image/jpeg", "x-upsert": "true" }, body: it.photos[i] });
+      it.syncedPhotos = it.photos.length;
+    }
+    await this.req("/rest/v1/listings", {
+      method: "POST", headers: { "content-type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify({ id: it.id, user_id: uid, created_at: new Date(it.created).toISOString(), updated_at: new Date().toISOString(),
+        title: L.title, price: L.price === "" ? null : Number(L.price), condition: L.condition, category: L.category,
+        description: L.description, amazon_url: L.amazonUrl || null, photos: paths, posted: it.status === "posted" })
+    });
+    it.syncedAt = Date.now(); DB.put(it);
+  },
+  async flush() {
+    if (!this.on() || this.busy) return;
+    this.busy = true; this.error = "";
+    try {
+      while (this.deletes.length) {
+        const d = this.deletes[0], uid = this.cfg.uid;
+        await this.req(`/rest/v1/listings?id=eq.${encodeURIComponent(d.id)}`, { method: "DELETE" });
+        const prefixes = Array.from({ length: d.n }, (_, i) => `${uid}/${d.id}/${i + 1}.jpg`);
+        if (prefixes.length) await this.req("/storage/v1/object/photos", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ prefixes }) });
+        this.deletes.shift(); DB.set("syncDeletes", this.deletes);
+      }
+      for (const id of [...this.pending]) {
+        const it = state.items.find(i => i.id === id);
+        this.pending.delete(id);
+        if (it && it.listing && (it.status === "ready" || it.status === "posted")) await this.push(it);
+      }
+    } catch (e) {
+      this.error = e.auth ? "Signed out of sync. Connect again in Setup." : navigator.onLine === false ? "Offline. Will sync when you’re back online." : "Sync failed: " + e.message;
+      if (e.auth) { this.cfg.refresh = ""; DB.set("sync", this.cfg); }
+      else this.schedule(30000);
+    }
+    this.busy = false; renderSyncState();
+    if (this.pending.size && !this.error) this.schedule(200);
+  },
+  async pullPosted() {
+    if (!this.on()) return;
+    try {
+      const rows = await (await this.req("/rest/v1/listings?select=id&posted=eq.true")).json();
+      const ids = new Set(rows.map(r => r.id)); let changed = false;
+      for (const it of state.items) if (it.status === "ready" && ids.has(it.id)) { it.status = "posted"; DB.put(it); changed = true; }
+      if (changed) renderAll();
+    } catch {}
+  },
+  queueAll() { for (const it of state.items) if (it.listing && (it.status === "ready" || it.status === "posted") && !it.syncedAt) this.pending.add(it.id); this.schedule(100); }
+};
+window.addEventListener("online", () => Sync.schedule(500));
+function renderSyncState() {
+  const on = Sync.on(), c = Sync.cfg || {};
+  $("#sbPassWrap").hidden = on; $("#sbConnect").hidden = on; $("#sbNow").hidden = !on; $("#sbOff").hidden = !on;
+  for (const id of ["#sbUrl", "#sbKey", "#sbEmail"]) $(id).disabled = on;
+  const synced = state.items.filter(i => i.syncedAt).length;
+  const waiting = Sync.pending.size + Sync.deletes.length;
+  $("#syncState").textContent = !on ? (c.url ? "Not connected." : "Not connected.")
+    : Sync.error || (Sync.busy || waiting ? `Connected as ${c.email}. Syncing…` : `Connected as ${c.email}. ${synced} listing${synced === 1 ? "" : "s"} synced.`);
+}
+$("#sbConnect").onclick = async () => {
+  const url = $("#sbUrl").value.trim().replace(/\/+$/, ""), key = $("#sbKey").value.trim(), email = $("#sbEmail").value.trim(), pass = $("#sbPass").value;
+  if (!/^https:\/\//.test(url) || !key || !email || !pass) { $("#syncState").textContent = "Fill in all four fields."; return; }
+  $("#syncState").textContent = "Connecting…";
+  Sync.cfg = { url, key, email };
+  try { await Sync.auth({ email, password: pass }, "password"); $("#sbPass").value = ""; Sync.error = ""; Sync.queueAll(); Sync.pullPosted(); }
+  catch (e) { Sync.cfg = null; $("#syncState").textContent = e.auth ? "Couldn’t sign in: " + e.message : "Couldn’t reach that project. Check the URL."; return; }
+  renderSyncState();
+};
+$("#sbNow").onclick = () => { Sync.queueAll(); for (const it of state.items) if (it.listing && (it.status === "ready" || it.status === "posted")) Sync.pending.add(it.id); Sync.schedule(0); renderSyncState(); };
+$("#sbOff").onclick = async () => { if (!confirm("Disconnect sync on this phone? Listings already synced stay in your project.")) return; Sync.cfg = { url: Sync.cfg.url, key: Sync.cfg.key, email: Sync.cfg.email }; await DB.set("sync", Sync.cfg); renderSyncState(); };
 
 /* ---------- helpers ---------- */
 const urls = new WeakMap();
@@ -717,7 +827,7 @@ function setTab(t) {
   for (const id of ["capture", "listings", "setup"]) $("#" + id).hidden = id !== t;
   $("#bar").hidden = t !== "capture";
   $("main").style.paddingBottom = t === "capture" ? "150px" : "40px";
-  if (t === "listings") renderListings();
+  if (t === "listings") { renderListings(); Sync.pullPosted(); }
   if (t === "capture") startCamera(); else stopCamera();
   window.scrollTo({ top: 0 });
 }
@@ -771,7 +881,7 @@ $("#cards").addEventListener("click", async e => {
   else if (act === "posted") { it.status = it.status === "posted" ? "ready" : "posted"; if (it.status === "posted") state.open.delete(it.id); save(it); renderAll(); }
   else if (act === "delete") {
     if (!confirm("Delete this item and its photos?")) return;
-    state.items = state.items.filter(i => i !== it); DB.del(it.id); renderAll(); renderCapture();
+    state.items = state.items.filter(i => i !== it); Sync.remove(it); DB.del(it.id); renderAll(); renderCapture();
   }
   else if (act === "photos") savePhotos(it);
 });
@@ -834,6 +944,7 @@ $("#csvIn").onchange = async e => {
 $("#csvClear").onclick = () => { if (!confirm("Remove every product from the order bank?")) return; state.orders = []; DB.set("orders", []); renderOrders(); };
 $("#wipe").onclick = async () => {
   if (!confirm("Delete every item and photo in Quicklist?")) return;
+  for (const it of state.items) Sync.remove(it);
   await DB.clear(); state.items = []; state.current = null; newCurrent(); renderCapture(); renderAll(); toast("All items deleted");
 };
 
@@ -842,6 +953,7 @@ async function init() {
   const s = await DB.get("settings");
   if (s) { Object.assign(state.settings, s); if (!s.v) { state.settings.link = true; state.settings.v = 3; DB.set("settings", state.settings); } }
   state.orders = (await DB.get("orders")) || [];
+  await Sync.load();
   const items = ((await DB.all()) || []).sort((a, b) => a.created - b.created);
   for (const it of items) if (it.status === "writing") { it.status = "queued"; save(it); }
   state.items = items;
@@ -861,7 +973,9 @@ async function init() {
   bindSetting("#sDomain", "domain", "value", refreshDescriptions);
   renderOrders(); renderCapture(); renderAll();
 
-  renderAll(); pump();
+  if (Sync.cfg) { $("#sbUrl").value = Sync.cfg.url || ""; $("#sbKey").value = Sync.cfg.key || ""; $("#sbEmail").value = Sync.cfg.email || ""; }
+  renderSyncState(); renderAll(); pump();
+  if (Sync.on()) { Sync.queueAll(); if (Sync.deletes.length) Sync.schedule(500); Sync.pullPosted(); }
   if (state.tab === "capture") startCamera();
 }
 $("#keyTest").onclick = async () => {
