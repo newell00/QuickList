@@ -41,6 +41,14 @@ storage and never puts it in the files you upload, so the public repository is s
 Anyone who has your unlocked phone could use it, though. If you lose the phone,
 delete the key in the console. You can also set a monthly spend limit there.
 
+## Turn on web search (for Amazon prices and links)
+
+Quicklist asks Claude to look up each item's current Amazon price and product link.
+That uses the API's web search tool, which costs about 1 cent per search on top of
+normal usage. An admin of your Console organization has to turn it on once at
+platform.claude.com/settings/privacy. Until then, Quicklist falls back to Claude's own
+price estimate and tells you so in Setup. You can also switch the lookup off in Setup.
+
 ## Updating the app
 
 Upload the changed file to the same repository (it replaces the old one).

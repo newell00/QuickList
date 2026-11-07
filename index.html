@@ -54,7 +54,7 @@ header{ position:sticky; top:env(safe-area-inset-top,0px); z-index:5; background
 .tabs button{ flex:1; border:0; background:transparent; padding:9px 6px; border-radius:9px; font-weight:600; cursor:pointer; color:var(--muted); }
 .tabs button[aria-selected="true"]{ background:var(--surface); color:var(--ink); box-shadow:0 1px 0 var(--line); }
 
-main{ padding-bottom:120px; }
+main{ padding-bottom:150px; }
 section[hidden]{ display:none; }
 h2{ font-size:30px; font-weight:850; font-stretch:72%; margin:12px 0 2px; line-height:1.05; }
 .sub{ color:var(--muted); margin:0 0 14px; font-size:15px; }
@@ -79,6 +79,28 @@ label.btn:focus-within{ outline:3px solid var(--brand); outline-offset:2px; }
   padding:10px 0 calc(10px + env(safe-area-inset-bottom,0px)); }
 .bar .wrap{ display:flex; flex-direction:column; gap:6px; }
 .queue-note{ font-size:13px; color:var(--muted); min-height:18px; }
+
+/* live camera */
+.caphead{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin:10px 0 8px; }
+.caphead h2{ margin:0; }
+.caphead .sub{ margin:0; }
+.cam{ position:relative; width:100%; aspect-ratio:3/4; max-height:54vh; border-radius:14px; overflow:hidden; background:#0B0F0D; }
+.cam video{ width:100%; height:100%; object-fit:cover; display:block; }
+.flash{ position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none; transition:opacity .25s ease-out; }
+.flash.on{ opacity:.75; transition:none; }
+.cam-msg{ position:absolute; inset:0; display:flex; flex-direction:column; gap:12px; align-items:center; justify-content:center; text-align:center; padding:24px; color:#E7EDEA; background:#1B2220; }
+.cam-msg[hidden]{ display:none; }
+.cam-msg p{ margin:0; max-width:30ch; }
+.cam-msg .btn{ background:#2A3431; color:#E7EDEA; border-color:#3A4643; }
+.cam-msg .btn.primary{ background:#57BFB2; color:#06201C; border-color:transparent; }
+.film{ display:flex; gap:6px; overflow-x:auto; margin-top:8px; min-height:64px; }
+.film .ph{ flex:0 0 64px; width:64px; height:64px; aspect-ratio:auto; }
+.film .ph button{ width:22px; height:22px; font-size:13px; top:2px; right:2px; }
+.controls{ display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:14px; }
+.controls .btn{ padding:13px 8px; }
+.shutter{ width:70px; height:70px; border-radius:50%; border:4px solid var(--ink); background:var(--surface); box-shadow:inset 0 0 0 4px var(--bg); cursor:pointer; padding:0; }
+.shutter:active{ transform:scale(.93); }
+.shutter:disabled{ opacity:.35; cursor:default; }
 
 /* listings */
 .banner{ background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin-bottom:12px; display:flex; gap:10px; align-items:center; justify-content:space-between; }
@@ -151,13 +173,17 @@ label.btn:focus-within{ outline:3px solid var(--brand); outline-offset:2px; }
 
 <main class="wrap">
   <section id="capture">
-    <h2 id="itemHead">Item 1</h2>
-    <p class="sub" id="itemSub">Take 2–5 photos: front, back, labels, any wear.</p>
-    <div id="photos"></div>
-    <div class="shoot">
-      <label class="btn primary big" id="camBtn">Take photo<input type="file" accept="image/*" capture="environment" id="camIn" class="vh"></label>
-      <label class="btn big" id="galBtn">Gallery<input type="file" accept="image/*" multiple id="galIn" class="vh"></label>
+    <div class="caphead"><h2 id="itemHead">Item 1</h2><span class="sub" id="itemSub"></span></div>
+    <div class="cam">
+      <video id="vf" playsinline muted autoplay></video>
+      <div class="flash" id="flash"></div>
+      <div class="cam-msg" id="camMsg" hidden>
+        <p id="camText">Starting camera…</p>
+        <button class="btn small primary" id="camRetry" hidden>Turn on camera</button>
+        <label class="btn small" id="camBtn">Use the phone’s camera app<input type="file" accept="image/*" capture="environment" id="camIn" class="vh"></label>
+      </div>
     </div>
+    <div class="film" id="photos"></div>
   </section>
 
   <section id="listings" hidden>
@@ -192,38 +218,45 @@ label.btn:focus-within{ outline:3px solid var(--brand); outline-offset:2px; }
     </div>
 
     <div class="panel">
-      <h3>Amazon order history</h3>
-      <p>Lets Claude match each item to what you bought, for the exact product name and original price. In Amazon, request your data and choose your orders. When the download arrives, unzip it and pick the order history CSV file.</p>
+      <h3>Amazon order bank</h3>
+      <p>Add each new order history CSV as it comes in. New products are added to the bank and duplicates are skipped. Products that already have a listing aren’t offered to Claude again.</p>
       <div class="actions">
-        <label class="btn small" id="csvBtn">Choose CSV<input type="file" accept=".csv,text/csv" multiple id="csvIn" class="vh"></label>
-        <button class="btn small danger" id="csvClear" hidden>Remove</button>
+        <label class="btn small" id="csvBtn">Add CSV<input type="file" accept=".csv,text/csv" multiple id="csvIn" class="vh"></label>
+        <button class="btn small danger" id="csvClear" hidden>Clear bank</button>
       </div>
-      <p class="note" id="csvState" style="margin:10px 0 0">No orders loaded.</p>
+      <p class="note" id="csvState" style="margin:10px 0 0">The bank is empty.</p>
     </div>
 
     <div class="panel">
       <h3>Pricing</h3>
       <div class="field">
-        <label for="sStyle">Aim for</label>
+        <label for="sStyle">Asking price</label>
         <select id="sStyle">
-          <option value="quick">Quick sale: priced to go this week</option>
-          <option value="fair">Fair: typical local used price</option>
-          <option value="high">Top: willing to wait for the right buyer</option>
+          <option value="quick">Quick sale: about half of retail</option>
+          <option value="fair">Fair: about 60–65% of retail</option>
+          <option value="high">Top: about 75% of retail</option>
         </select>
       </div>
-      <div class="field">
+      <label class="check"><input type="checkbox" id="sSearch"> <span>Look up the current Amazon price and link online (about 2¢ extra per item)</span></label>
+      <p class="note" id="searchState" style="margin:8px 0 0"></p>
+      <div class="field" style="margin-top:10px">
         <label for="sCur">Currency</label>
         <input id="sCur" maxlength="6">
       </div>
     </div>
 
     <div class="panel">
-      <h3>Description extras</h3>
+      <h3>Description</h3>
       <div class="field">
-        <label for="sNote">Add to every description</label>
-        <textarea id="sNote" style="min-height:80px" placeholder="Pickup near Main St. Cash or Venmo."></textarea>
+        <label for="sStory">Backstory for Claude to work in</label>
+        <textarea id="sStory" style="min-height:70px"></textarea>
       </div>
-      <label class="check"><input type="checkbox" id="sLink"> <span>Add the Amazon product link when an item matches an order</span></label>
+      <p class="note" style="margin:-4px 0 12px">Claude says only what’s here, and mentions wear if the photos show any. Leave blank to skip it.</p>
+      <div class="field">
+        <label for="sNote">Add to the end of every description</label>
+        <textarea id="sNote" style="min-height:70px" placeholder="Pickup near Main St. Cash or e-Transfer."></textarea>
+      </div>
+      <label class="check"><input type="checkbox" id="sLink"> <span>Add the Amazon product link</span></label>
       <div class="field" style="margin-top:10px">
         <label for="sDomain">Amazon site</label>
         <input id="sDomain" placeholder="amazon.com">
@@ -246,7 +279,11 @@ label.btn:focus-within{ outline:3px solid var(--brand); outline-offset:2px; }
 <div class="bar" id="bar">
   <div class="wrap">
     <div class="queue-note" id="queueNote"></div>
-    <button class="btn primary big" id="nextBtn" disabled>Next item</button>
+    <div class="controls">
+      <label class="btn" id="galBtn">Gallery<input type="file" accept="image/*" multiple id="galIn" class="vh"></label>
+      <button class="shutter" id="shutter" aria-label="Take photo" disabled></button>
+      <button class="btn primary" id="nextBtn" disabled>Next item</button>
+    </div>
   </div>
 </div>
 
@@ -262,7 +299,8 @@ const CONDITIONS = ["New","Used - like new","Used - good","Used - fair"];
 
 const state = {
   items: [], current: null, tab: "capture",
-  settings: { style: "fair", currency: "USD", note: "", link: false, domain: "amazon.com", key: "", model: "claude-sonnet-5-5" },
+  settings: { style: "fair", currency: "USD", note: "", link: true, domain: "amazon.com", key: "", model: "claude-sonnet-5-5", search: true, story: "Bought this on Amazon but never ended up using it, and it’s too late to return it.", v: 3 },
+  searchOff: false,
   orders: [], maxImages: 6, open: new Set()
 };
 
@@ -377,84 +415,114 @@ function mergeOrders(list) {
 
 /* ---------- AI ---------- */
 const STYLE = {
-  quick: "Price it to sell within a few days: toward the low end of local used prices.",
-  fair: "Price it at a typical local used price, leaving a little room to negotiate.",
-  high: "Price it at the upper end of local used prices; the seller can wait for the right buyer."
+  quick: "about 50% of the retail price, to sell within a few days",
+  fair: "about 60–65% of the retail price",
+  high: "about 75% of the retail price; the seller can wait for the right buyer"
 };
-function buildPrompt(it) {
-  const s = state.settings;
-  const orders = state.orders.slice(0, 450);
-  let ordersBlock = "";
-  if (orders.length) {
-    ordersBlock = "\nThe seller's Amazon order history, most recent first (number. date | price paid | product name):\n" +
-      orders.map((o, i) => `${i + 1}. ${o.date || "?"} | ${o.price != null ? o.price : "?"} | ${o.name.slice(0, 120)}`).join("\n") +
-      "\n\nIf the item in the photos clearly is one of these products, set match to that number, use the product name for the exact brand and model, and base the price on the price paid and the item's age and condition. If you are not confident, set match to null.\n";
-  }
-  return `You are helping someone sell their own used belongings on Facebook Marketplace. The ${it.photos.length > 1 ? "attached photos all show ONE item" : "attached photo shows one item"}. Write a listing for it.
-
-Rules:
-- Identify the item as precisely as the photos allow (brand, model, size, color). Never invent specs you can't see or reliably infer.
-- condition: exactly one of ${CONDITIONS.map(c => `"${c}"`).join(", ")}. Judge from the photos; use "Used - good" if unclear.
-- Prices are whole numbers in ${s.currency || "USD"}. ${STYLE[s.style] || STYLE.fair} Give price plus a realistic low/high range.
-- title: under 70 characters, starting with brand and item type. No emoji, no all caps, no words like "WOW" or "L@@K".
-- description: 2 to 4 short plain sentences: what it is, key details, condition and any visible wear. No markdown, hashtags or emoji. Don't mention pickup or payment.
-- category: exactly one of ${CATEGORIES.map(c => `"${c}"`).join(", ")}.
-- check: one short sentence telling the seller what to verify before posting (e.g. a missing part, a model number you guessed), or "" if nothing.
-${ordersBlock}
-Reply with only this JSON:
-{"title": "", "price": 0, "price_low": 0, "price_high": 0, "condition": "", "category": "", "description": "", "check": "", "match": null}`;
+const orderKey = o => o.asin || o.name;
+function domainOf() { return (state.settings.domain || "").trim().replace(/^https?:\/\/(www\.)?/, "").replace(/\/.*$/, "") || "amazon.com"; }
+function listedKeys(except) { return new Set(state.items.filter(i => i !== except && i.listing && i.listing.match).map(i => orderKey(i.listing.match))); }
+function cleanAmazonUrl(u) {
+  const m = String(u || "").trim().match(/^https?:\/\/(?:www\.)?(amazon\.[a-z.]+)\/(?:.*?\/)?(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
+  return m ? `https://www.${m[1].toLowerCase()}/dp/${m[2].toUpperCase()}` : "";
 }
+function buildPrompt(it, search) {
+  const s = state.settings, dom = domainOf(), cur = (s.currency || "USD").toUpperCase();
+  const listed = listedKeys(it);
+  const orders = state.orders.filter(o => !listed.has(orderKey(o))).slice(0, 600);
+  const story = (s.story || "").trim().replace(/"/g, "'");
+  const ordersBlock = orders.length ? `
+The seller's Amazon orders, most recent first (number. date | price paid if known | product name):
+${orders.map((o, i) => `${i + 1}. ${o.date || "?"} | ${o.price != null ? o.price : "-"} | ${o.name.slice(0, 100)}`).join("\n")}
+
+If the item clearly is one of these, set match to its number and use that product name to identify it exactly; otherwise set match to null. The price paid is often missing or 0, so don't base the asking price on it.
+` : "";
+  const prompt = `You're helping someone sell their own belongings on Facebook Marketplace. ${it.photos.length > 1 ? "The attached photos all show ONE item" : "The attached photo shows one item"}. Write the listing.
+
+1. Identify it: the exact product (brand, model, size, color) from the photos${orders.length ? " and the order list below" : ""}. Never invent specs you can't see or reliably know.
+${ordersBlock}
+2. Retail price, in ${cur}: ${search
+    ? `search the web for this exact product on ${dom}. Put its current listed price in retail_price and its product page URL (the link containing /dp/) in amazon_url. If you can't find it on ${dom}, use another major retailer's current price and leave amazon_url as "". Use at most 2 searches.`
+    : `estimate what it sells for new on ${dom} today. Leave amazon_url as "".`}
+
+3. Asking price: price is ${STYLE[s.style] || STYLE.fair}. Go lower if the photos show wear. Round to a friendly number (ending in 0 or 5 above 20). Give a realistic price_low and price_high around it.
+
+4. Write:
+- title: under 70 characters, brand then what it is, in plain words. No emoji, all caps or hype.
+- description: how a regular person writes a Marketplace post: first person, casual and friendly, 2 to 4 short sentences. Say what it is in plain words and the one or two details a buyer cares about (size, what's included, what it's for)${story ? `. Work in this backstory, in your own words and without adding to it: "${story}"` : ""}. If the photos show clear use or wear, say so honestly${story ? " and don't call it unused" : ""}. No hype, emoji, hashtags, bullet points or markdown. Don't mention price, pickup, payment or links.
+- condition: exactly one of ${CONDITIONS.map(c => `"${c}"`).join(", ")}. "New" only if it looks unused (open box is fine).
+- category: exactly one of ${CATEGORIES.map(c => `"${c}"`).join(", ")}.
+- check: one short sentence on anything the seller should verify before posting (a part that may be missing, a model number you guessed), or "".
+
+End your reply with only this JSON:
+{"title": "", "price": 0, "price_low": 0, "price_high": 0, "retail_price": 0, "amazon_url": "", "condition": "", "category": "", "description": "", "check": "", "match": null}`;
+  return { prompt, orders };
+}
+function linkFor(L) { return L.amazonUrl || (L.match && L.match.asin ? `https://www.${domainOf()}/dp/${L.match.asin}` : ""); }
 function composeDescription(it) {
   const L = it.listing, s = state.settings; let d = (L.baseDescription || "").trim();
-  if (s.link && L.match && L.match.asin) d += `\n\nOriginal product: https://www.${(s.domain || "amazon.com").replace(/^https?:\/\/(www\.)?/, "").replace(/\/.*$/, "")}/dp/${L.match.asin}`;
+  const u = s.link ? linkFor(L) : "";
+  if (u) d += `\n\nAmazon listing: ${u}`;
   if (s.note.trim()) d += "\n\n" + s.note.trim();
   return d;
 }
 const hasKey = () => !!state.settings.key.trim();
-class ApiError extends Error { constructor(msg, retry = true) { super(msg); this.retry = retry; } }
+class ApiError extends Error { constructor(msg, code = "") { super(msg); this.code = code; } }
 async function toBase64(blob) {
   const buf = new Uint8Array(await blob.arrayBuffer()); let bin = "";
   for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
   return btoa(bin);
 }
 function parseJSON(text) {
-  try { return JSON.parse(text); } catch {}
-  const a = text.indexOf("{"), b = text.lastIndexOf("}");
-  if (a >= 0 && b > a) { try { return JSON.parse(text.slice(a, b + 1)); } catch {} }
+  const tries = [text];
+  const b = text.lastIndexOf("}");
+  if (b > 0) {
+    const t = text.lastIndexOf('{"title"', b), t2 = text.lastIndexOf('"title"', b);
+    if (t >= 0) tries.push(text.slice(t, b + 1));
+    if (t2 >= 0) { const o = text.lastIndexOf("{", t2); if (o >= 0) tries.push(text.slice(o, b + 1)); }
+    const a = text.indexOf("{"); if (a >= 0) tries.push(text.slice(a, b + 1));
+  }
+  for (const x of tries) { try { const r = JSON.parse(x); if (r && typeof r === "object") return r; } catch {} }
   throw new ApiError("The answer came back garbled. Tap Retry.");
 }
-async function callClaude(prompt, images, maxTokens = 1500) {
+async function callClaude(prompt, images, maxTokens = 1500, tools = null) {
   const content = [];
   for (const b of images) {
     const type = ["image/jpeg", "image/png", "image/webp", "image/gif"].includes(b.type) ? b.type : null;
     if (type) content.push({ type: "image", source: { type: "base64", media_type: type, data: await toBase64(b) } });
   }
-  if (images.length && !content.length) throw new ApiError("These photos are in a format Claude can’t read. Retake them in the app.", false);
+  if (images.length && !content.length) throw new ApiError("These photos are in a format Claude can’t read. Retake them in the app.");
   content.push({ type: "text", text: prompt });
-  let res;
-  try {
-    res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": state.settings.key.trim(),
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true"
-      },
-      body: JSON.stringify({ model: state.settings.model, max_tokens: maxTokens, messages: [{ role: "user", content }] })
-    });
-  } catch { throw new ApiError("No connection. Tap Retry when you’re back online."); }
-  if (!res.ok) {
-    let msg = ""; try { msg = (await res.json()).error?.message || ""; } catch {}
-    if (res.status === 401 || res.status === 403) throw new ApiError("Your API key was rejected. Check it in Setup, then tap Retry.", false);
-    if (res.status === 429) throw new ApiError("Rate limit reached. Wait a minute, then tap Retry.");
-    if (res.status === 529 || res.status >= 500) throw new ApiError("Claude is busy right now. Tap Retry in a moment.");
-    if (/credit|billing|balance/i.test(msg)) throw new ApiError("Your API account is out of credit. Add credit at console.anthropic.com.", false);
-    throw new ApiError("Claude couldn’t process this item" + (msg ? `: ${msg}` : ".") );
+  const messages = [{ role: "user", content }];
+  let text = "";
+  for (let round = 0; round < 4; round++) {
+    const body = { model: state.settings.model, max_tokens: maxTokens, messages };
+    if (tools) body.tools = tools;
+    let res;
+    try {
+      res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-api-key": state.settings.key.trim(), "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+        body: JSON.stringify(body)
+      });
+    } catch { throw new ApiError("No connection. Tap Retry when you’re back online."); }
+    if (!res.ok) {
+      let msg = ""; try { msg = (await res.json()).error?.message || ""; } catch {}
+      if (tools && (res.status === 400 || res.status === 403) && /web.?search|server tool|tool/i.test(msg)) throw new ApiError(msg, "search_off");
+      if (res.status === 401 || res.status === 403) throw new ApiError("Your API key was rejected. Check it in Setup, then tap Retry.");
+      if (res.status === 429) throw new ApiError("Rate limit reached. Wait a minute, then tap Retry.");
+      if (res.status === 529 || res.status >= 500) throw new ApiError("Claude is busy right now. Tap Retry in a moment.");
+      if (/credit|billing|balance/i.test(msg)) throw new ApiError("Your API account is out of credit. Add credit at console.anthropic.com.");
+      throw new ApiError("Claude couldn’t process this item" + (msg ? `: ${msg}` : "."));
+    }
+    const data = await res.json();
+    text += (data.content || []).filter(c => c.type === "text").map(c => c.text).join("");
+    if (data.stop_reason !== "pause_turn") break;
+    messages.push({ role: "assistant", content: data.content });
   }
-  const data = await res.json();
-  return (data.content || []).filter(c => c.type === "text").map(c => c.text).join("\n");
+  return text;
 }
+const SEARCH_TOOL = [{ type: "web_search_20250305", name: "web_search", max_uses: 2 }];
 
 let running = false;
 async function pump() {
@@ -469,13 +537,25 @@ async function pump() {
 async function generate(it) {
   it.status = "writing"; it.error = ""; save(it); renderAll();
   try {
-    const r = parseJSON(await callClaude(buildPrompt(it), it.photos.slice(0, state.maxImages)));
-    const n = v => { const x = Math.round(Number(v)); return isFinite(x) && x >= 0 ? x : ""; };
+    const imgs = it.photos.slice(0, state.maxImages);
+    let search = state.settings.search && !state.searchOff;
+    let built = buildPrompt(it, search), raw;
+    try { raw = await callClaude(built.prompt, imgs, search ? 3000 : 1500, search ? SEARCH_TOOL : null); }
+    catch (e) {
+      if (e.code !== "search_off") throw e;
+      state.searchOff = true; renderSearchState(); search = false;
+      built = buildPrompt(it, false); raw = await callClaude(built.prompt, imgs);
+    }
+    const r = parseJSON(raw);
+    const n = v => { const x = Math.round(Number(v)); return isFinite(x) && x > 0 ? x : ""; };
     const idx = Number(r.match);
-    const match = Number.isInteger(idx) && idx >= 1 && idx <= state.orders.length ? state.orders[idx - 1] : null;
+    const match = Number.isInteger(idx) && idx >= 1 && idx <= built.orders.length ? built.orders[idx - 1] : null;
+    const amazonUrl = cleanAmazonUrl(r.amazon_url);
     it.listing = {
       title: String(r.title || "").slice(0, 100),
       price: n(r.price), low: n(r.price_low), high: n(r.price_high),
+      retail: n(r.retail_price), retailSource: !search ? "estimate" : amazonUrl ? "amazon" : "web",
+      amazonUrl,
       condition: CONDITIONS.includes(r.condition) ? r.condition : "Used - good",
       category: CATEGORIES.includes(r.category) ? r.category : "Miscellaneous",
       baseDescription: String(r.description || ""),
@@ -512,17 +592,60 @@ function nextItem() {
   pump();
 }
 
+let stream = null, camWanted = false, snapping = false;
+function camFail(text, retry) {
+  $("#camText").textContent = text; $("#camRetry").hidden = !retry; $("#camMsg").hidden = false; $("#shutter").disabled = true;
+}
+async function startCamera() {
+  camWanted = true;
+  if (stream) return;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { camFail("Live camera isn’t available in this browser. Use the camera app or Gallery instead.", false); return; }
+  try {
+    const st = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: "environment" }, width: { ideal: 2560 }, height: { ideal: 1920 } } });
+    if (!camWanted) { st.getTracks().forEach(t => t.stop()); return; }
+    stream = st;
+    const v = $("#vf"); v.srcObject = stream; await v.play().catch(() => {});
+    const track = stream.getVideoTracks()[0];
+    try { const caps = track.getCapabilities && track.getCapabilities(); if (caps && caps.focusMode && caps.focusMode.includes("continuous")) await track.applyConstraints({ advanced: [{ focusMode: "continuous" }] }); } catch {}
+    $("#camMsg").hidden = true; $("#shutter").disabled = false;
+  } catch (e) {
+    stream = null;
+    const denied = e && (e.name === "NotAllowedError" || e.name === "SecurityError");
+    camFail(denied ? "Camera access is blocked. Allow the camera for this site in Chrome’s site settings, then tap Turn on camera." : "Couldn’t start the camera. Close other apps using it, then try again.", true);
+  }
+}
+function stopCamera() {
+  camWanted = false;
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  $("#vf").srcObject = null; $("#shutter").disabled = true;
+}
+async function snap() {
+  const v = $("#vf");
+  if (!stream || snapping || !v.videoWidth) return;
+  snapping = true;
+  const w = v.videoWidth, h = v.videoHeight, k = Math.min(1, 1600 / Math.max(w, h));
+  const c = document.createElement("canvas"); c.width = Math.round(w * k); c.height = Math.round(h * k);
+  c.getContext("2d").drawImage(v, 0, 0, c.width, c.height);
+  const f = $("#flash"); f.classList.add("on"); requestAnimationFrame(() => requestAnimationFrame(() => f.classList.remove("on")));
+  if (navigator.vibrate) navigator.vibrate(15);
+  const blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.88));
+  if (blob) { const it = state.current || newCurrent(); it.photos.push(blob); save(it); renderCapture(); renderQueue(); }
+  snapping = false;
+}
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) { if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; } }
+  else if (state.tab === "capture") startCamera();
+});
+
 /* ---------- render ---------- */
 function renderCapture() {
   const it = state.current; const n = it ? itemNumber(it) : state.items.length + 1;
-  $("#itemHead").textContent = "Item " + n;
   const c = it ? it.photos.length : 0;
-  $("#itemSub").textContent = c ? `${c} photo${c > 1 ? "s" : ""}. Add more, or move on to the next item.` : "Take 2–5 photos: front, back, labels, any wear.";
+  $("#itemHead").textContent = "Item " + n;
+  $("#itemSub").textContent = c ? `${c} photo${c > 1 ? "s" : ""}` : "Front, back, labels, any wear";
   const box = $("#photos");
-  if (!c) { box.innerHTML = `<div class="empty">Take the first photo of this item.</div>`; }
-  else {
-    box.innerHTML = `<div class="grid">${it.photos.map((b, i) => `<div class="ph"><img src="${urlOf(b)}" alt="Photo ${i + 1}"><button aria-label="Remove photo ${i + 1}" data-rm="${i}">×</button></div>`).join("")}</div>`;
-  }
+  box.innerHTML = c ? it.photos.map((b, i) => `<div class="ph"><img src="${urlOf(b)}" alt="Photo ${i + 1}"><button aria-label="Remove photo ${i + 1}" data-rm="${i}">×</button></div>`).join("") : "";
+  box.scrollLeft = box.scrollWidth;
   $("#nextBtn").disabled = !c;
 }
 function renderQueue() {
@@ -557,7 +680,8 @@ function cardHTML(it) {
   } else if (it.status === "ready" || it.status === "posted") {
     const range = (L.low !== "" && L.high !== "") ? `Similar items usually sell for ${esc(money(L.low))} to ${esc(money(L.high))}.` : "";
     body += `
-      ${L.match ? `<div class="match">Matched your Amazon order: ${esc(L.match.name.slice(0, 90))}${L.match.price != null ? `, paid ${esc(money(L.match.price))}` : ""}${L.match.date ? ` on ${esc(L.match.date)}` : ""}.${L.match.asin ? ` <a href="https://www.${esc((state.settings.domain || "amazon.com").replace(/^https?:\/\/(www\.)?/, "").replace(/\/.*$/, ""))}/dp/${esc(L.match.asin)}" target="_blank" rel="noopener">View on Amazon</a>` : ""}</div>` : ""}
+      ${(L.retail || L.match) ? `<div class="match">${L.retail ? `${L.retailSource === "amazon" ? "Amazon price" : L.retailSource === "web" ? "Retail price found online" : "Retail price (Claude’s estimate)"}: <strong>${esc(money(L.retail))}</strong>. ` : ""}${L.match ? `Matched your order: ${esc(L.match.name.slice(0, 80))}${L.match.date ? ` from ${esc(L.match.date)}` : ""}.` : ""}</div>` : ""}
+      <div class="field"><label for="a-${it.id}">Amazon link ${L.amazonUrl ? `<a class="copy" href="${esc(L.amazonUrl)}" target="_blank" rel="noopener">Open</a>` : ""}</label><input id="a-${it.id}" data-f="amazonUrl" inputmode="url" value="${esc(L.amazonUrl || "")}" placeholder="Paste a link if Claude didn’t find one"></div>
       ${L.check ? `<div class="note"><strong>Check before posting:</strong> ${esc(L.check)}</div>` : ""}
       <div class="field"><label for="t-${it.id}">Title <button class="copy" data-copy="title">Copy</button></label><input id="t-${it.id}" data-f="title" value="${esc(L.title)}" maxlength="100"></div>
       <div class="two">
@@ -585,15 +709,16 @@ function renderListings() {
   $("#pendingBanner").innerHTML = cur && cur.photos.length
     ? `<div class="banner"><span>Item ${itemNumber(cur)} has ${cur.photos.length} photo${cur.photos.length > 1 ? "s" : ""} and isn’t written yet.</span><button class="btn small primary" id="finishCur">Write it</button></div>` : "";
 }
-function renderAll() { renderQueue(); renderListings(); }
+function renderAll() { renderQueue(); renderListings(); renderOrders(); }
 
 function setTab(t) {
   state.tab = t;
   document.querySelectorAll(".tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === t)));
   for (const id of ["capture", "listings", "setup"]) $("#" + id).hidden = id !== t;
   $("#bar").hidden = t !== "capture";
-  $("main").style.paddingBottom = t === "capture" ? "120px" : "40px";
+  $("main").style.paddingBottom = t === "capture" ? "150px" : "40px";
   if (t === "listings") renderListings();
+  if (t === "capture") startCamera(); else stopCamera();
   window.scrollTo({ top: 0 });
 }
 
@@ -606,6 +731,8 @@ $("#photos").onclick = e => {
   state.current.photos.splice(Number(b.dataset.rm), 1); save(state.current); renderCapture();
 };
 $("#nextBtn").onclick = nextItem;
+$("#shutter").onclick = snap;
+$("#camRetry").onclick = () => { stopCamera(); startCamera(); };
 $("#pendingBanner").onclick = e => { if (e.target.id === "finishCur") nextItem(); };
 
 const findItem = el => { const c = el.closest(".card"); return c && state.items.find(i => i.id === c.dataset.id); };
@@ -623,6 +750,10 @@ $("#cards").addEventListener("input", e => {
   const card = e.target.closest(".card");
   if (f === "title") card.querySelector(".ctitle").textContent = v || "Untitled item " + itemNumber(it);
   if (f === "price") card.querySelector(".sticker").textContent = money(v);
+  if (f === "amazonUrl") {
+    it.listing.amazonUrl = cleanAmazonUrl(v) || v.trim();
+    if (!it.listing.descEdited) { it.listing.description = composeDescription(it); card.querySelector('[data-f="description"]').value = it.listing.description; }
+  }
 });
 $("#cards").addEventListener("click", async e => {
   const it = findItem(e.target); if (!it) return;
@@ -673,18 +804,34 @@ function refreshDescriptions() {
   if (state.tab === "listings") renderListings();
 }
 function renderOrders() {
-  const n = state.orders.length;
-  $("#csvState").textContent = n ? `${n} products loaded${n > 450 ? ". Claude sees the 450 most recent." : "."}` : "No orders loaded.";
+  const n = state.orders.length, listed = listedKeys(null).size, latest = state.orders[0] && state.orders[0].date;
+  $("#csvState").textContent = n ? `${n} products in the bank${latest ? `, newest order ${latest}` : ""}. ${listed} already listed.` : "The bank is empty.";
   $("#csvClear").hidden = !n;
 }
+function renderSearchState() {
+  $("#searchState").textContent = state.searchOff && state.settings.search
+    ? "Web search is turned off for your API account, so prices are Claude’s estimates for now. Turn it on at platform.claude.com/settings/privacy (an admin of the Console organization can do this)."
+    : "";
+}
 $("#csvIn").onchange = async e => {
-  let added = [];
-  for (const f of e.target.files) { try { added = added.concat(ordersFromCSV(await f.text())); } catch {} }
+  let added = [], text = "";
+  for (const f of e.target.files) { try { const t = await f.text(); text += t; added = added.concat(ordersFromCSV(t)); } catch {} }
   e.target.value = "";
-  if (!added.length) { toast("No products found. Pick the order history CSV."); return; }
-  state.orders = mergeOrders(added); DB.set("orders", state.orders); renderOrders(); toast(`${added.length} order lines read`);
+  if (!added.length) { toast("No products found. Pick an order history CSV."); return; }
+  const before = state.orders.length;
+  state.orders = mergeOrders(added); DB.set("orders", state.orders);
+  const m = text.match(/https?:\/\/(?:www\.)?(amazon\.[a-z.]+?)\//i), s = state.settings;
+  if (m && (!s.domain || s.domain === "amazon.com") && m[1].toLowerCase() !== "amazon.com") {
+    s.domain = m[1].toLowerCase(); $("#sDomain").value = s.domain;
+    const cur = { "amazon.ca": "CAD", "amazon.co.uk": "GBP", "amazon.com.au": "AUD", "amazon.de": "EUR", "amazon.fr": "EUR", "amazon.it": "EUR", "amazon.es": "EUR" }[s.domain];
+    if (cur && s.currency === "USD") { s.currency = cur; $("#sCur").value = cur; }
+    DB.set("settings", s);
+  }
+  renderOrders();
+  const fresh = state.orders.length - before;
+  toast(fresh ? `${fresh} new product${fresh > 1 ? "s" : ""} added to the bank` : "No new products. They’re all in the bank already.");
 };
-$("#csvClear").onclick = () => { state.orders = []; DB.set("orders", []); renderOrders(); };
+$("#csvClear").onclick = () => { if (!confirm("Remove every product from the order bank?")) return; state.orders = []; DB.set("orders", []); renderOrders(); };
 $("#wipe").onclick = async () => {
   if (!confirm("Delete every item and photo in Quicklist?")) return;
   await DB.clear(); state.items = []; state.current = null; newCurrent(); renderCapture(); renderAll(); toast("All items deleted");
@@ -692,7 +839,8 @@ $("#wipe").onclick = async () => {
 
 /* ---------- init ---------- */
 async function init() {
-  const s = await DB.get("settings"); if (s) Object.assign(state.settings, s);
+  const s = await DB.get("settings");
+  if (s) { Object.assign(state.settings, s); if (!s.v) { state.settings.link = true; state.settings.v = 3; DB.set("settings", state.settings); } }
   state.orders = (await DB.get("orders")) || [];
   const items = ((await DB.all()) || []).sort((a, b) => a.created - b.created);
   for (const it of items) if (it.status === "writing") { it.status = "queued"; save(it); }
@@ -707,11 +855,14 @@ async function init() {
   bindSetting("#sStyle", "style");
   bindSetting("#sCur", "currency", "value", () => { if (state.tab === "listings") renderListings(); });
   bindSetting("#sNote", "note", "value", refreshDescriptions);
+  bindSetting("#sStory", "story");
+  bindSetting("#sSearch", "search", "checked", renderSearchState);
   bindSetting("#sLink", "link", "checked", refreshDescriptions);
   bindSetting("#sDomain", "domain", "value", refreshDescriptions);
   renderOrders(); renderCapture(); renderAll();
 
   renderAll(); pump();
+  if (state.tab === "capture") startCamera();
 }
 $("#keyTest").onclick = async () => {
   const st = $("#keyState");
