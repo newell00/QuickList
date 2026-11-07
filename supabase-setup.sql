@@ -1,20 +1,29 @@
--- Quicklist sync: run once in your Supabase project's SQL Editor.
+-- Quicklist sync (version 2): run once in a NEW Supabase project's SQL Editor.
+-- (Already set up with version 1? Run supabase-update-3.sql instead.)
 
 create table if not exists public.listings (
-  id          text primary key,
-  user_id     uuid not null default auth.uid() references auth.users on delete cascade,
-  created_at  timestamptz not null default now(),
-  updated_at  timestamptz not null default now(),
-  title       text,
-  price       numeric,
-  condition   text,
-  category    text,
-  description text,
-  amazon_url  text,
-  photos      text[] not null default '{}',
-  posted      boolean not null default false,
-  order_name  text,
-  order_url   text
+  id            text primary key,
+  user_id       uuid not null default auth.uid() references auth.users on delete cascade,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now(),
+  status        text,            -- new, writing, ready or failed
+  hint          text,            -- what the phone said the item is (optional)
+  error         text,
+  title         text,
+  price         numeric,
+  price_low     numeric,
+  price_high    numeric,
+  condition     text,
+  category      text,
+  description   text,
+  check_note    text,
+  amazon_url    text,
+  retail_price  numeric,
+  retail_source text,
+  order_name    text,
+  order_url     text,
+  photos        text[] not null default '{}',
+  posted        boolean not null default false
 );
 
 alter table public.listings enable row level security;
@@ -25,7 +34,6 @@ create policy "own listings" on public.listings
   for all to authenticated
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
--- Private bucket for photos; each user can only touch files in their own folder.
 insert into storage.buckets (id, name, public) values ('photos', 'photos', false)
   on conflict (id) do nothing;
 

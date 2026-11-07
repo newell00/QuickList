@@ -155,6 +155,11 @@ label.btn:focus-within{ outline:3px solid var(--brand); outline-offset:2px; }
   background:var(--ink); color:var(--bg); padding:10px 16px; border-radius:10px; font-size:15px; max-width:90vw; opacity:0; pointer-events:none; transition:opacity .2s; }
 .toast.show{ opacity:1; }
 .vh{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
+
+.crow{ display:grid; grid-template-columns:64px 1fr auto; gap:12px; align-items:center; padding:12px; }
+.hintf{ margin-top:12px; }
+.hintf label .opt{ font-weight:400; }
+.cmeta.ok{ font-weight:600; }
 </style>
 </head>
 <body>
@@ -162,11 +167,11 @@ label.btn:focus-within{ outline:3px solid var(--brand); outline-offset:2px; }
   <div class="wrap">
     <div class="brandrow">
       <h1 class="wordmark">Quicklist</h1>
-      <div class="ai-state" id="aiState"></div>
+      <div class="ai-state" id="syncBadge"></div>
     </div>
     <div class="tabs" role="tablist">
       <button role="tab" data-tab="capture" aria-selected="true">Capture</button>
-      <button role="tab" data-tab="listings" aria-selected="false" id="listTab">Listings</button>
+      <button role="tab" data-tab="items" aria-selected="false" id="itemsTab">Items</button>
       <button role="tab" data-tab="setup" aria-selected="false">Setup</button>
     </div>
   </div>
@@ -185,88 +190,25 @@ label.btn:focus-within{ outline:3px solid var(--brand); outline-offset:2px; }
       </div>
     </div>
     <div class="film" id="photos"></div>
+    <div class="field hintf">
+      <label for="hint">What is it? <span class="opt">Optional, helps match your order</span></label>
+      <input id="hint" autocomplete="off" placeholder="e.g. dash cam, baby monitor">
+    </div>
   </section>
 
-  <section id="listings" hidden>
-    <h2>Listings</h2>
-    <p class="sub" id="listSub">Copy each field into Facebook’s “Create new listing” form.</p>
+  <section id="items" hidden>
+    <h2>Items</h2>
+    <p class="sub">Your computer writes each listing. Edit and post them from the Quicklist Chrome extension.</p>
     <div id="pendingBanner"></div>
     <div class="cards" id="cards"></div>
   </section>
 
   <section id="setup" hidden>
     <h2>Setup</h2>
-    <p class="sub">Add your API key once. Everything else is optional.</p>
-
-    <div class="panel">
-      <h3>Claude API key</h3>
-      <p>Create one at console.anthropic.com under API keys. It stays on this phone and is sent only to Anthropic.</p>
-      <div class="field">
-        <label for="sKey">API key</label>
-        <input id="sKey" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="sk-ant-...">
-      </div>
-      <div class="field">
-        <label for="sModel">Model</label>
-        <select id="sModel">
-          <option value="claude-sonnet-5-5">Sonnet 5.5: best identification and pricing</option>
-          <option value="claude-haiku-5-5">Haiku 5.5: faster and cheaper</option>
-        </select>
-      </div>
-      <div class="actions">
-        <button class="btn small primary" id="keyTest">Test key</button>
-      </div>
-      <p class="note" id="keyState" style="margin:10px 0 0"></p>
-    </div>
-
-    <div class="panel">
-      <h3>Amazon order bank</h3>
-      <p>Add each new order history CSV as it comes in. New products are added to the bank and duplicates are skipped. Products that already have a listing aren’t offered to Claude again.</p>
-      <div class="actions">
-        <label class="btn small" id="csvBtn">Add CSV<input type="file" accept=".csv,text/csv" multiple id="csvIn" class="vh"></label>
-        <button class="btn small danger" id="csvClear" hidden>Clear bank</button>
-      </div>
-      <p class="note" id="csvState" style="margin:10px 0 0">The bank is empty.</p>
-    </div>
-
-    <div class="panel">
-      <h3>Pricing</h3>
-      <div class="field">
-        <label for="sStyle">Asking price</label>
-        <select id="sStyle">
-          <option value="quick">Quick sale: about half of retail</option>
-          <option value="fair">Fair: about 60–65% of retail</option>
-          <option value="high">Top: about 75% of retail</option>
-        </select>
-      </div>
-      <label class="check"><input type="checkbox" id="sSearch"> <span>Look up the current Amazon price and link online (about 2¢ extra per item)</span></label>
-      <p class="note" id="searchState" style="margin:8px 0 0"></p>
-      <div class="field" style="margin-top:10px">
-        <label for="sCur">Currency</label>
-        <input id="sCur" maxlength="6">
-      </div>
-    </div>
-
-    <div class="panel">
-      <h3>Description</h3>
-      <div class="field">
-        <label for="sStory">Backstory for Claude to work in</label>
-        <textarea id="sStory" style="min-height:70px"></textarea>
-      </div>
-      <p class="note" style="margin:-4px 0 12px">Claude says only what’s here, and mentions wear if the photos show any. Leave blank to skip it.</p>
-      <div class="field">
-        <label for="sNote">Add to the end of every description</label>
-        <textarea id="sNote" style="min-height:70px" placeholder="Pickup near Main St. Cash or e-Transfer."></textarea>
-      </div>
-      <label class="check"><input type="checkbox" id="sLink"> <span>Add the Amazon product link</span></label>
-      <div class="field" style="margin-top:10px">
-        <label for="sDomain">Amazon site</label>
-        <input id="sDomain" placeholder="amazon.com">
-      </div>
-    </div>
-
+    <p class="sub">Connect once. Everything else lives in the Chrome extension’s settings.</p>
     <div class="panel">
       <h3>Sync to your computer</h3>
-      <p>Sends finished listings and photos to your own Supabase project, where the Quicklist Chrome extension picks them up. Do the one-time setup in SETUP-SYNC first.</p>
+      <p>Sends each finished item’s photos to your Supabase project, where the Quicklist Chrome extension picks them up.</p>
       <div class="field"><label for="sbUrl">Project URL</label><input id="sbUrl" inputmode="url" autocapitalize="off" spellcheck="false" placeholder="https://abcd1234.supabase.co"></div>
       <div class="field"><label for="sbKey">Publishable key</label><input id="sbKey" autocapitalize="off" spellcheck="false" placeholder="sb_publishable_..."></div>
       <div class="field"><label for="sbEmail">Email</label><input id="sbEmail" type="email" autocapitalize="off"></div>
@@ -278,16 +220,14 @@ label.btn:focus-within{ outline:3px solid var(--brand); outline-offset:2px; }
       </div>
       <p class="note" id="syncState" style="margin:10px 0 0">Not connected.</p>
     </div>
-
     <div class="panel">
       <h3>Install on your phone</h3>
       <p>In Chrome, open the ⋮ menu and choose Add to Home screen (or Install app). Quicklist then opens full screen like any other app.</p>
     </div>
-
     <div class="panel">
       <h3>Start over</h3>
-      <p>Deletes every item and photo stored in this app on this device.</p>
-      <button class="btn small danger" id="wipe">Delete all items</button>
+      <p>Clears the items stored on this phone. Items already sent to your computer stay there.</p>
+      <button class="btn small danger" id="wipe">Clear this phone</button>
     </div>
   </section>
 </main>
@@ -308,29 +248,21 @@ label.btn:focus-within{ outline:3px solid var(--brand); outline-offset:2px; }
 <script>
 (() => {
 const $ = (s, r = document) => r.querySelector(s);
-const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const state = { items: [], current: null, tab: "capture" };
 
-const CATEGORIES = ["Antiques & Collectibles","Appliances","Arts & Crafts","Auto Parts","Baby & Kids","Bags & Luggage","Bicycles","Books, Movies & Music","Electronics & Computers","Furniture","Garden","Health & Beauty","Household","Jewelry & Accessories","Men’s Clothing & Shoes","Mobile Phones","Musical Instruments","Pet Supplies","Sports & Outdoors","Tools","Toys & Games","Video Games","Women’s Clothing & Shoes","Miscellaneous"];
-const CONDITIONS = ["New","Used - like new","Used - good","Used - fair"];
-
-const state = {
-  items: [], current: null, tab: "capture",
-  settings: { style: "fair", currency: "USD", note: "", link: true, domain: "amazon.com", key: "", model: "claude-sonnet-5-5", search: true, story: "Bought this on Amazon but never ended up using it, and it’s too late to return it.", v: 3 },
-  searchOff: false,
-  orders: [], maxImages: 6, open: new Set()
-};
-
-/* ---------- storage (IndexedDB, falls back to memory) ---------- */
+/* ---------- storage on this phone (IndexedDB) ---------- */
+function openDB(name, setup) {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(name, 1);
+    r.onupgradeneeded = () => setup && setup(r.result);
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+}
 const DB = (() => {
   let p;
-  function open() {
-    if (!p) p = new Promise((res, rej) => {
-      const r = indexedDB.open("quicklist", 1);
-      r.onupgradeneeded = () => { const d = r.result; d.createObjectStore("items", { keyPath: "id" }); d.createObjectStore("kv"); };
-      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
-    });
-    return p;
-  }
+  const open = () => p || (p = openDB("quicklist2", d => { d.createObjectStore("items", { keyPath: "id" }); d.createObjectStore("kv"); }));
   async function tx(store, mode, fn) {
     try {
       const d = await open();
@@ -350,15 +282,40 @@ const DB = (() => {
     set: (k, v) => tx("kv", "readwrite", s => s.put(v, k)),
   };
 })();
-const save = it => { if (it.listing && (it.status === "ready" || it.status === "posted")) Sync.dirty(it); return DB.put(it); };
-const saveTimers = new Map();
-function saveSoon(it) { clearTimeout(saveTimers.get(it.id)); saveTimers.set(it.id, setTimeout(() => save(it), 400)); }
+// Version 1 kept its sync connection in another database: carry it over once.
+async function oldConnection() {
+  try {
+    if (indexedDB.databases && !(await indexedDB.databases()).some(d => d.name === "quicklist")) return null;
+    const d = await openDB("quicklist");
+    if (!d.objectStoreNames.contains("kv")) { d.close(); return null; }
+    const v = await new Promise(res => { const r = d.transaction("kv").objectStore("kv").get("sync"); r.onsuccess = () => res(r.result); r.onerror = () => res(null); });
+    d.close(); return v || null;
+  } catch { return null; }
+}
 
-/* ---------- sync (Supabase) ---------- */
+/* ---------- helpers ---------- */
+const urls = new WeakMap();
+const urlOf = b => { let u = urls.get(b); if (!u) { u = URL.createObjectURL(b); urls.set(b, u); } return u; };
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+let toastT;
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 2400); }
+const money = n => n == null || n === "" ? "" : "$" + Math.round(Number(n)).toLocaleString();
+async function shrink(file) {
+  try {
+    const bmp = await createImageBitmap(file, { imageOrientation: "from-image" });
+    const k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement("canvas"); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+    c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height); bmp.close && bmp.close();
+    return await new Promise(r => c.toBlob(b => r(b || file), "image/jpeg", 0.85));
+  } catch { return file; }
+}
+const itemNumber = it => state.items.indexOf(it) + 1;
+
+/* ---------- sync with Supabase ---------- */
 const Sync = {
-  cfg: null, pending: new Set(), deletes: [], busy: false, timer: 0, error: "", count: 0,
+  cfg: null, busy: false, timer: 0, error: "", deletes: [],
   on() { return !!(this.cfg && this.cfg.refresh); },
-  async load() { this.cfg = (await DB.get("sync")) || null; this.deletes = (await DB.get("syncDeletes")) || []; },
+  async load() { this.cfg = (await DB.get("sync")) || (await oldConnection()); this.deletes = (await DB.get("syncDeletes")) || []; if (this.cfg) DB.set("sync", this.cfg); },
   async auth(body, grant) {
     const r = await fetch(`${this.cfg.url}/auth/v1/token?grant_type=${grant}`, { method: "POST", headers: { apikey: this.cfg.key, "content-type": "application/json" }, body: JSON.stringify(body) });
     const j = await r.json().catch(() => ({}));
@@ -366,363 +323,108 @@ const Sync = {
     Object.assign(this.cfg, { access: j.access_token, refresh: j.refresh_token, exp: Date.now() + (j.expires_in || 3600) * 1000 - 60000, uid: (j.user && j.user.id) || this.cfg.uid });
     await DB.set("sync", this.cfg);
   },
-  async token() { if (!this.cfg.access || Date.now() > this.cfg.exp) await this.auth({ refresh_token: this.cfg.refresh }, "refresh_token"); return this.cfg.access; },
   async req(path, opts = {}) {
-    const t = await this.token();
-    const r = await fetch(this.cfg.url + path, { ...opts, headers: { apikey: this.cfg.key, Authorization: `Bearer ${t}`, ...(opts.headers || {}) } });
+    if (!this.cfg.access || Date.now() > this.cfg.exp) await this.auth({ refresh_token: this.cfg.refresh }, "refresh_token");
+    const r = await fetch(this.cfg.url + path, { ...opts, headers: { apikey: this.cfg.key, Authorization: `Bearer ${this.cfg.access}`, ...(opts.headers || {}) } });
     if (!r.ok) { const m = await r.text().catch(() => ""); throw new Error(`${r.status} ${m.slice(0, 160)}`); }
     return r;
   },
-  dirty(it) { if (!this.on()) return; this.pending.add(it.id); this.schedule(); },
-  remove(it) { if (!this.on() || !it.syncedAt) return; this.deletes.push({ id: it.id, n: it.photos.length }); DB.set("syncDeletes", this.deletes); this.schedule(); },
-  schedule(ms = 1500) { clearTimeout(this.timer); this.timer = setTimeout(() => this.flush(), ms); },
-  async push(it) {
-    const uid = this.cfg.uid, L = it.listing;
-    const paths = it.photos.map((_, i) => `${uid}/${it.id}/${i + 1}.jpg`);
-    if (it.syncedPhotos !== it.photos.length) {
-      for (let i = 0; i < it.photos.length; i++)
-        await this.req(`/storage/v1/object/photos/${paths[i]}`, { method: "POST", headers: { "content-type": it.photos[i].type || "image/jpeg", "x-upsert": "true" }, body: it.photos[i] });
-      it.syncedPhotos = it.photos.length;
+  schedule(ms = 800) { clearTimeout(this.timer); this.timer = setTimeout(() => this.flush(), ms); },
+  // Send one finished item: its photos, then a "new" listing row for the extension to write.
+  async upload(it) {
+    const u = this.cfg.uid;
+    const paths = it.photos.map((_, i) => `${u}/${it.id}/${i + 1}.jpg`);
+    for (let i = (it.sent || 0); i < it.photos.length; i++) {
+      await this.req(`/storage/v1/object/photos/${paths[i]}`, { method: "POST", headers: { "content-type": it.photos[i].type || "image/jpeg", "x-upsert": "true" }, body: it.photos[i] });
+      it.sent = i + 1; DB.put(it); renderItems();
     }
-    try { await this.upsert(it, uid, L, paths); }
-    catch (e) {
-      // Projects set up before the order columns existed: sync without them.
-      if (!this.noOrderCols && /order_(name|url)/.test(e.message)) { this.noOrderCols = true; await this.upsert(it, uid, L, paths); }
-      else throw e;
-    }
-    it.syncedAt = Date.now(); DB.put(it);
-  },
-  async upsert(it, uid, L, paths) {
     await this.req("/rest/v1/listings", {
       method: "POST", headers: { "content-type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
-      body: JSON.stringify({ id: it.id, user_id: uid, created_at: new Date(it.created).toISOString(), updated_at: new Date().toISOString(),
-        title: L.title, price: L.price === "" ? null : Number(L.price), condition: L.condition, category: L.category,
-        description: L.description, amazon_url: L.amazonUrl || null, photos: paths, posted: it.status === "posted",
-        ...(this.noOrderCols ? {} : { order_name: L.match ? L.match.name : null, order_url: L.match ? (L.match.orderUrl || (state.orders.find(o => o.name === L.match.name) || {}).orderUrl || null) : null }) })
+      body: JSON.stringify({ id: it.id, user_id: u, created_at: new Date(it.created).toISOString(), updated_at: new Date().toISOString(), photos: paths, hint: it.hint || null, status: "new" })
     });
+    it.state = "uploaded"; it.remote = { status: "new" }; it.uploadedAt = Date.now(); DB.put(it);
   },
   async flush() {
     if (!this.on() || this.busy) return;
-    this.busy = true; this.error = "";
+    this.busy = true; this.error = ""; renderSync();
     try {
       while (this.deletes.length) {
-        const d = this.deletes[0], uid = this.cfg.uid;
+        const d = this.deletes[0], u = this.cfg.uid;
         await this.req(`/rest/v1/listings?id=eq.${encodeURIComponent(d.id)}`, { method: "DELETE" });
-        const prefixes = Array.from({ length: d.n }, (_, i) => `${uid}/${d.id}/${i + 1}.jpg`);
+        const prefixes = Array.from({ length: d.n }, (_, i) => `${u}/${d.id}/${i + 1}.jpg`);
         if (prefixes.length) await this.req("/storage/v1/object/photos", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ prefixes }) });
         this.deletes.shift(); DB.set("syncDeletes", this.deletes);
       }
-      for (const id of [...this.pending]) {
-        const it = state.items.find(i => i.id === id);
-        this.pending.delete(id);
-        if (it && it.listing && (it.status === "ready" || it.status === "posted")) await this.push(it);
-      }
+      for (const it of state.items.filter(i => i.state === "queued")) await this.upload(it);
     } catch (e) {
-      this.error = e.auth ? "Signed out of sync. Connect again in Setup." : navigator.onLine === false ? "Offline. Will sync when you’re back online." : "Sync failed: " + e.message;
-      if (e.auth) { this.cfg.refresh = ""; DB.set("sync", this.cfg); }
-      else this.schedule(30000);
+      this.error = e.auth ? "Signed out of sync. Connect again in Setup." : navigator.onLine === false ? "Offline. Items will send when you’re back online." : "Couldn’t send: " + e.message;
+      if (e.auth) { this.cfg.refresh = ""; DB.set("sync", this.cfg); } else this.schedule(30000);
     }
-    this.busy = false; renderSyncState();
-    if (this.pending.size && !this.error) this.schedule(200);
+    this.busy = false; renderSync(); renderItems();
   },
-  async pullPosted() {
+  // What the computer has done with each item.
+  async pull() {
     if (!this.on()) return;
     try {
-      const rows = await (await this.req("/rest/v1/listings?select=id&posted=eq.true")).json();
-      const ids = new Set(rows.map(r => r.id)); let changed = false;
-      for (const it of state.items) if (it.status === "ready" && ids.has(it.id)) { it.status = "posted"; DB.put(it); changed = true; }
-      if (changed) renderAll();
+      const rows = await (await this.req("/rest/v1/listings?select=id,status,title,price,posted,error")).json();
+      const byId = new Map(rows.map(r => [r.id, r]));
+      let changed = false;
+      for (const it of [...state.items]) {
+        if (it.state !== "uploaded") continue;
+        const r = byId.get(it.id);
+        if (!r) { if (Date.now() - (it.uploadedAt || 0) > 15000) { state.items = state.items.filter(x => x !== it); DB.del(it.id); changed = true; } continue; } // deleted on the computer
+        if (JSON.stringify(it.remote) !== JSON.stringify(r)) { it.remote = r; DB.put(it); changed = true; }
+      }
+      if (changed) { renderItems(); renderCapture(); }
     } catch {}
   },
-  queueAll() { for (const it of state.items) if (it.listing && (it.status === "ready" || it.status === "posted") && !it.syncedAt) this.pending.add(it.id); this.schedule(100); }
+  remove(it) {
+    if (it.state !== "uploaded" && !it.sent) return;
+    this.deletes.push({ id: it.id, n: it.photos.length }); DB.set("syncDeletes", this.deletes); this.schedule(200);
+  }
 };
 window.addEventListener("online", () => Sync.schedule(500));
-function renderSyncState() {
+setInterval(() => { if (state.tab === "items" && !document.hidden) Sync.pull(); }, 20000);
+
+function renderSync() {
   const on = Sync.on(), c = Sync.cfg || {};
   $("#sbPassWrap").hidden = on; $("#sbConnect").hidden = on; $("#sbNow").hidden = !on; $("#sbOff").hidden = !on;
   for (const id of ["#sbUrl", "#sbKey", "#sbEmail"]) $(id).disabled = on;
-  const synced = state.items.filter(i => i.syncedAt).length;
-  const waiting = Sync.pending.size + Sync.deletes.length;
-  $("#syncState").textContent = !on ? (c.url ? "Not connected." : "Not connected.")
-    : Sync.error || (Sync.busy || waiting ? `Connected as ${c.email}. Syncing…` : `Connected as ${c.email}. ${synced} listing${synced === 1 ? "" : "s"} synced.`);
+  const waiting = state.items.filter(i => i.state === "queued").length;
+  $("#syncState").textContent = !on ? "Not connected." : Sync.error || (Sync.busy ? `Connected as ${c.email}. Sending…` : `Connected as ${c.email}.${waiting ? ` ${waiting} waiting to send.` : ""}`);
+  $("#syncBadge").textContent = !on ? "Not connected" : Sync.error ? "Sync problem" : "";
 }
 $("#sbConnect").onclick = async () => {
   const url = $("#sbUrl").value.trim().replace(/\/+$/, ""), key = $("#sbKey").value.trim(), email = $("#sbEmail").value.trim(), pass = $("#sbPass").value;
   if (!/^https:\/\//.test(url) || !key || !email || !pass) { $("#syncState").textContent = "Fill in all four fields."; return; }
   $("#syncState").textContent = "Connecting…";
   Sync.cfg = { url, key, email };
-  try { await Sync.auth({ email, password: pass }, "password"); $("#sbPass").value = ""; Sync.error = ""; Sync.queueAll(); Sync.pullPosted(); }
-  catch (e) { Sync.cfg = null; $("#syncState").textContent = e.auth ? "Couldn’t sign in: " + e.message : "Couldn’t reach that project. Check the URL."; return; }
-  renderSyncState();
+  try { await Sync.auth({ email, password: pass }, "password"); $("#sbPass").value = ""; Sync.error = ""; Sync.schedule(100); Sync.pull(); }
+  catch (e) { Sync.cfg = { url, key, email }; $("#syncState").textContent = e.auth ? "Couldn’t sign in: " + e.message : "Couldn’t reach that project. Check the URL."; return; }
+  renderSync();
 };
-$("#sbNow").onclick = () => { Sync.queueAll(); for (const it of state.items) if (it.listing && (it.status === "ready" || it.status === "posted")) Sync.pending.add(it.id); Sync.schedule(0); renderSyncState(); };
-$("#sbOff").onclick = async () => { if (!confirm("Disconnect sync on this phone? Listings already synced stay in your project.")) return; Sync.cfg = { url: Sync.cfg.url, key: Sync.cfg.key, email: Sync.cfg.email }; await DB.set("sync", Sync.cfg); renderSyncState(); };
-
-/* ---------- helpers ---------- */
-const urls = new WeakMap();
-function urlOf(blob) { let u = urls.get(blob); if (!u) { u = URL.createObjectURL(blob); urls.set(blob, u); } return u; }
-function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
-let toastT;
-function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 2400); }
-function money(n) {
-  if (n === "" || n == null || isNaN(n)) return "—";
-  const cur = (state.settings.currency || "USD").toUpperCase();
-  try { return new Intl.NumberFormat(undefined, { style: "currency", currency: cur, maximumFractionDigits: 0 }).format(n); }
-  catch { return Math.round(n) + " " + cur; }
-}
-async function copyText(text) {
-  try { await navigator.clipboard.writeText(text); return true; } catch {}
-  const ta = document.createElement("textarea"); ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
-  document.body.appendChild(ta); ta.select(); let ok = false; try { ok = document.execCommand("copy"); } catch {} ta.remove(); return ok;
-}
-async function shrink(file) {
-  try {
-    const bmp = await createImageBitmap(file, { imageOrientation: "from-image" });
-    const s = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
-    const c = document.createElement("canvas"); c.width = Math.round(bmp.width * s); c.height = Math.round(bmp.height * s);
-    c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height); bmp.close && bmp.close();
-    return await new Promise(r => c.toBlob(b => r(b || file), "image/jpeg", 0.85));
-  } catch { return file; }
-}
-function itemNumber(it) { return state.items.indexOf(it) + 1; }
-
-/* ---------- Amazon CSV ---------- */
-function parseCSV(text) {
-  const rows = []; let row = [], f = "", q = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (q) { if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
-    else if (c === '"') q = true;
-    else if (c === ",") { row.push(f); f = ""; }
-    else if (c === "\n") { row.push(f); rows.push(row); row = []; f = ""; }
-    else if (c !== "\r") f += c;
-  }
-  if (f || row.length) { row.push(f); rows.push(row); }
-  return rows;
-}
-function ordersFromCSV(text) {
-  const rows = parseCSV(text.replace(/^\uFEFF/, "")); if (rows.length < 2) return [];
-  const h = rows[0].map(x => x.trim().toLowerCase());
-  const find = res => { for (const re of res) { const i = h.findIndex(x => re.test(x)); if (i >= 0) return i; } return -1; };
-  const iName = find([/^product name$/, /^title$/, /product name/, /item name/, /^items?$/]);
-  const iAsin = find([/^asin$/, /asin/]);
-  const iUrl = find([/^order url$/, /order.?url/, /order.?detail/]);
-  const iDate = find([/^order date$/, /order date/, /^date$/]);
-  const iPrice = find([/^unit price$/, /purchase price per unit/, /item total/, /total owed/, /^total$/, /price/]);
-  if (iName < 0) return [];
-  const multi = h[iName] === "items"; // order-history extension format: several products per order, split by ";"
-  const out = [];
-  for (const r of rows.slice(1)) {
-    const cell = (r[iName] || "").trim();
-    if (!cell || cell.toLowerCase() === h[iName]) continue; // skip repeated header rows
-    let parts = multi ? cell.split(/;\s*/) : [cell];
-    // product titles can contain ";" too: a piece starting in lowercase continues the previous title
-    if (multi) parts = parts.reduce((acc, x) => { if (acc.length && /^[a-z]/.test(x)) acc[acc.length - 1] += "; " + x; else acc.push(x); return acc; }, []);
-    const names = parts.map(x => x.split(" | ")[0].trim()).filter(Boolean);
-    let price = parseFloat(String(r[iPrice] ?? "").replace(/[^0-9.]/g, ""));
-    if (isNaN(price) || price <= 0 || names.length > 1) price = null; // an order total can't be split across items
-    const d = new Date(r[iDate] || "");
-    const date = isNaN(d) ? "" : d.toISOString().slice(0, 10);
-    const asin = iAsin >= 0 ? (r[iAsin] || "").trim() : "";
-    const orderUrl = iUrl >= 0 && /^https:\/\/(www\.)?amazon\./.test((r[iUrl] || "").trim()) ? r[iUrl].trim() : "";
-    for (const name of names) out.push({ name, asin, date, price, orderUrl });
-  }
-  return out;
-}
-function mergeOrders(list) {
-  const seen = new Map();
-  for (const o of [...state.orders, ...list]) {
-    const k = o.asin || o.name, prev = seen.get(k);
-    if (!prev || o.date > prev.date) seen.set(k, prev && o.date === prev.date ? { ...prev, ...o } : o);
-    else if (o.date === prev.date) seen.set(k, { ...prev, ...Object.fromEntries(Object.entries(o).filter(([, v]) => v)) });
-  }
-  return [...seen.values()].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
-}
-
-/* ---------- AI ---------- */
-const STYLE = {
-  quick: "about 50% of the retail price, to sell within a few days",
-  fair: "about 60–65% of the retail price",
-  high: "about 75% of the retail price; the seller can wait for the right buyer"
-};
-const orderKey = o => o.asin || o.name;
-function domainOf() { return (state.settings.domain || "").trim().replace(/^https?:\/\/(www\.)?/, "").replace(/\/.*$/, "") || "amazon.com"; }
-function listedKeys(except) { return new Set(state.items.filter(i => i !== except && i.listing && i.listing.match).map(i => orderKey(i.listing.match))); }
-function cleanAmazonUrl(u) {
-  const m = String(u || "").trim().match(/^https?:\/\/(?:www\.)?(amazon\.[a-z.]+)\/(?:.*?\/)?(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
-  return m ? `https://www.${m[1].toLowerCase()}/dp/${m[2].toUpperCase()}` : "";
-}
-function buildPrompt(it, search) {
-  const s = state.settings, dom = domainOf(), cur = (s.currency || "USD").toUpperCase();
-  const listed = listedKeys(it);
-  const orders = state.orders.filter(o => !listed.has(orderKey(o))).slice(0, 600);
-  const story = (s.story || "").trim().replace(/"/g, "'");
-  const ordersBlock = orders.length ? `
-The seller's Amazon orders, most recent first (number. date | price paid if known | product name):
-${orders.map((o, i) => `${i + 1}. ${o.date || "?"} | ${o.price != null ? o.price : "-"} | ${o.name.slice(0, 100)}`).join("\n")}
-
-If the item clearly is one of these, set match to its number and use that product name to identify it exactly; otherwise set match to null. The price paid is often missing or 0, so don't base the asking price on it.
-` : "";
-  const prompt = `You're helping someone sell their own belongings on Facebook Marketplace. ${it.photos.length > 1 ? "The attached photos all show ONE item" : "The attached photo shows one item"}. Write the listing.
-
-1. Identify it: the exact product (brand, model, size, color) from the photos${orders.length ? " and the order list below" : ""}. Never invent specs you can't see or reliably know.
-${ordersBlock}
-2. Retail price, in ${cur}: ${search
-    ? `search the web for this exact product on ${dom}${orders.length ? " (if it matches one of the orders, search for that order's product name)" : ""}. Put its current listed price in retail_price and its product page URL (the link containing /dp/) in amazon_url. If you can't find it on ${dom}, use another major retailer's current price and leave amazon_url as "". Use at most 2 searches.`
-    : `estimate what it sells for new on ${dom} today. Leave amazon_url as "".`}
-
-3. Asking price: price is ${STYLE[s.style] || STYLE.fair}. Go lower if the photos show wear. Give a realistic price_low and price_high around it.
-
-4. Write:
-- title: under 70 characters, in the form "<what it is, in plain words, plus its key spec> - <brand and model>". Examples: "Dashcam 4K front and rear - Vantrue Sonnet S1 Pro Max", "OBD2 diagnostic scanner - LAUNCH Creader Elite V3 G". If the brand or model is unknown, leave out the part after the dash. No emoji, all caps or hype.
-- description: how a regular person writes a Marketplace post: first person, casual and friendly, 2 to 4 short sentences. Say what it is in plain words and the one or two details a buyer cares about (size, what's included, what it's for)${story ? `. Work in this backstory, in your own words and without adding to it: "${story}"` : ""}. If the photos show clear use or wear, say so honestly${story ? " and don't call it unused" : ""}. No hype, emoji, hashtags, bullet points or markdown. Don't mention price, pickup, payment or links.
-- condition: exactly one of ${CONDITIONS.map(c => `"${c}"`).join(", ")}. "New" only if it looks unused (open box is fine).
-- category: exactly one of ${CATEGORIES.map(c => `"${c}"`).join(", ")}.
-- check: one short sentence on anything the seller should verify before posting (a part that may be missing, a model number you guessed), or "".
-
-End your reply with only this JSON:
-{"title": "", "price": 0, "price_low": 0, "price_high": 0, "retail_price": 0, "amazon_url": "", "condition": "", "category": "", "description": "", "check": "", "match": null}`;
-  return { prompt, orders };
-}
-function linkFor(L) { return L.amazonUrl || (L.match && L.match.asin ? `https://www.${domainOf()}/dp/${L.match.asin}` : ""); }
-function composeDescription(it) {
-  const L = it.listing, s = state.settings; let d = (L.baseDescription || "").trim();
-  const u = s.link ? linkFor(L) : "";
-  if (u) d += `\n\nAmazon listing: ${u}`;
-  if (s.note.trim()) d += "\n\n" + s.note.trim();
-  return d;
-}
-const hasKey = () => !!state.settings.key.trim();
-class ApiError extends Error { constructor(msg, code = "") { super(msg); this.code = code; } }
-async function toBase64(blob) {
-  const buf = new Uint8Array(await blob.arrayBuffer()); let bin = "";
-  for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
-  return btoa(bin);
-}
-function parseJSON(text) {
-  const tries = [text];
-  const b = text.lastIndexOf("}");
-  if (b > 0) {
-    const t = text.lastIndexOf('{"title"', b), t2 = text.lastIndexOf('"title"', b);
-    if (t >= 0) tries.push(text.slice(t, b + 1));
-    if (t2 >= 0) { const o = text.lastIndexOf("{", t2); if (o >= 0) tries.push(text.slice(o, b + 1)); }
-    const a = text.indexOf("{"); if (a >= 0) tries.push(text.slice(a, b + 1));
-  }
-  for (const x of tries) { try { const r = JSON.parse(x); if (r && typeof r === "object") return r; } catch {} }
-  throw new ApiError("The answer came back garbled. Tap Retry.");
-}
-async function callClaude(prompt, images, maxTokens = 1500, tools = null) {
-  const content = [];
-  for (const b of images) {
-    const type = ["image/jpeg", "image/png", "image/webp", "image/gif"].includes(b.type) ? b.type : null;
-    if (type) content.push({ type: "image", source: { type: "base64", media_type: type, data: await toBase64(b) } });
-  }
-  if (images.length && !content.length) throw new ApiError("These photos are in a format Claude can’t read. Retake them in the app.");
-  content.push({ type: "text", text: prompt });
-  const messages = [{ role: "user", content }];
-  let text = "";
-  for (let round = 0; round < 4; round++) {
-    const body = { model: state.settings.model, max_tokens: maxTokens, messages };
-    if (tools) body.tools = tools;
-    let res;
-    try {
-      res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "content-type": "application/json", "x-api-key": state.settings.key.trim(), "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-        body: JSON.stringify(body)
-      });
-    } catch { throw new ApiError("No connection. Tap Retry when you’re back online."); }
-    if (!res.ok) {
-      let msg = ""; try { msg = (await res.json()).error?.message || ""; } catch {}
-      if (tools && (res.status === 400 || res.status === 403) && /web.?search|server tool|tool/i.test(msg)) throw new ApiError(msg, "search_off");
-      if (res.status === 401 || res.status === 403) throw new ApiError("Your API key was rejected. Check it in Setup, then tap Retry.");
-      if (res.status === 429) throw new ApiError("Rate limit reached. Wait a minute, then tap Retry.");
-      if (res.status === 529 || res.status >= 500) throw new ApiError("Claude is busy right now. Tap Retry in a moment.");
-      if (/credit|billing|balance/i.test(msg)) throw new ApiError("Your API account is out of credit. Add credit at console.anthropic.com.");
-      throw new ApiError("Claude couldn’t process this item" + (msg ? `: ${msg}` : "."));
-    }
-    const data = await res.json();
-    text += (data.content || []).filter(c => c.type === "text").map(c => c.text).join("");
-    if (data.stop_reason !== "pause_turn") break;
-    messages.push({ role: "assistant", content: data.content });
-  }
-  return text;
-}
-const SEARCH_TOOL = [{ type: "web_search_20250305", name: "web_search", max_uses: 2 }];
-
-let running = false;
-async function pump() {
-  if (running) return;
-  const next = state.items.find(i => i.status === "queued");
-  if (!next || !hasKey()) { renderQueue(); return; }
-  running = true;
-  await generate(next);
-  running = false;
-  pump();
-}
-async function generate(it) {
-  it.status = "writing"; it.error = ""; save(it); renderAll();
-  try {
-    const imgs = it.photos.slice(0, state.maxImages);
-    let search = state.settings.search && !state.searchOff;
-    let built = buildPrompt(it, search), raw;
-    try { raw = await callClaude(built.prompt, imgs, search ? 3000 : 1500, search ? SEARCH_TOOL : null); }
-    catch (e) {
-      if (e.code !== "search_off") throw e;
-      state.searchOff = true; renderSearchState(); search = false;
-      built = buildPrompt(it, false); raw = await callClaude(built.prompt, imgs);
-    }
-    const r = parseJSON(raw);
-    const n = v => { const x = Math.round(Number(v)); return isFinite(x) && x > 0 ? x : ""; };
-    const up10 = v => v === "" ? "" : Math.max(10, Math.ceil(v / 10) * 10); // cash-friendly: always round up to the next $10
-    const idx = Number(r.match);
-    const match = Number.isInteger(idx) && idx >= 1 && idx <= built.orders.length ? built.orders[idx - 1] : null;
-    const amazonUrl = cleanAmazonUrl(r.amazon_url);
-    it.listing = {
-      title: String(r.title || "").slice(0, 100),
-      price: up10(n(r.price)), low: up10(n(r.price_low)), high: up10(n(r.price_high)),
-      retail: n(r.retail_price), retailSource: !search ? "estimate" : amazonUrl ? "amazon" : "web",
-      amazonUrl,
-      condition: CONDITIONS.includes(r.condition) ? r.condition : "Used - good",
-      category: CATEGORIES.includes(r.category) ? r.category : "Miscellaneous",
-      baseDescription: String(r.description || ""),
-      check: String(r.check || ""), match
-    };
-    it.listing.description = composeDescription(it);
-    it.status = "ready";
-    state.open.add(it.id);
-  } catch (e) {
-    it.status = "failed"; it.error = (e && e.message) || "Something went wrong. Tap Retry.";
-  }
-  save(it); renderAll();
-}
-function blankListing() { return { title: "", price: "", low: "", high: "", condition: "Used - good", category: "Miscellaneous", baseDescription: "", description: "", check: "", match: null }; }
+$("#sbNow").onclick = () => { Sync.schedule(0); Sync.pull(); };
+$("#sbOff").onclick = async () => { if (!confirm("Disconnect sync on this phone?")) return; Sync.cfg = { url: Sync.cfg.url, key: Sync.cfg.key, email: Sync.cfg.email }; await DB.set("sync", Sync.cfg); renderSync(); };
 
 /* ---------- capture ---------- */
 function newCurrent() {
-  const it = { id: uid(), created: Date.now(), photos: [], status: "capturing", listing: null, error: "" };
-  state.items.push(it); state.current = it; save(it); return it;
+  const it = { id: uid(), created: Date.now(), photos: [], hint: "", state: "capturing" };
+  state.items.push(it); state.current = it; DB.put(it); return it;
 }
-async function addFiles(files) {
-  if (!files || !files.length) return;
+async function addPhoto(blob) {
   const it = state.current || newCurrent();
-  for (const f of files) it.photos.push(await shrink(f));
-  save(it); renderCapture(); renderQueue();
+  it.photos.push(blob); DB.put(it); renderCapture();
 }
 function nextItem() {
   const it = state.current; if (!it || !it.photos.length) return;
-  it.status = "queued"; save(it);
-  newCurrent();
-  renderCapture(); renderAll();
-  toast(hasKey() ? "Writing that listing in the background" : "Saved. Add your API key in Setup to write it");
-  window.scrollTo({ top: 0 });
-  pump();
+  it.hint = $("#hint").value.trim(); it.state = "queued"; DB.put(it);
+  newCurrent(); $("#hint").value = "";
+  renderCapture(); renderItems(); renderSync();
+  toast(Sync.on() ? "Sent to your computer" : "Saved. Connect sync in Setup to send it");
+  Sync.schedule(100);
 }
-
 let stream = null, camWanted = false, snapping = false;
-function camFail(text, retry) {
-  $("#camText").textContent = text; $("#camRetry").hidden = !retry; $("#camMsg").hidden = false; $("#shutter").disabled = true;
-}
+function camFail(text, retry) { $("#camText").textContent = text; $("#camRetry").hidden = !retry; $("#camMsg").hidden = false; $("#shutter").disabled = true; }
 async function startCamera() {
   camWanted = true;
   if (stream) return;
@@ -730,8 +432,7 @@ async function startCamera() {
   try {
     const st = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: "environment" }, width: { ideal: 2560 }, height: { ideal: 1920 } } });
     if (!camWanted) { st.getTracks().forEach(t => t.stop()); return; }
-    stream = st;
-    const v = $("#vf"); v.srcObject = stream; await v.play().catch(() => {});
+    stream = st; const v = $("#vf"); v.srcObject = stream; await v.play().catch(() => {});
     const track = stream.getVideoTracks()[0];
     try { const caps = track.getCapabilities && track.getCapabilities(); if (caps && caps.focusMode && caps.focusMode.includes("continuous")) await track.applyConstraints({ advanced: [{ focusMode: "continuous" }] }); } catch {}
     $("#camMsg").hidden = true; $("#shutter").disabled = false;
@@ -741,11 +442,7 @@ async function startCamera() {
     camFail(denied ? "Camera access is blocked. Allow the camera for this site in Chrome’s site settings, then tap Turn on camera." : "Couldn’t start the camera. Close other apps using it, then try again.", true);
   }
 }
-function stopCamera() {
-  camWanted = false;
-  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
-  $("#vf").srcObject = null; $("#shutter").disabled = true;
-}
+function stopCamera() { camWanted = false; if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; } $("#vf").srcObject = null; $("#shutter").disabled = true; }
 async function snap() {
   const v = $("#vf");
   if (!stream || snapping || !v.videoWidth) return;
@@ -756,262 +453,104 @@ async function snap() {
   const f = $("#flash"); f.classList.add("on"); requestAnimationFrame(() => requestAnimationFrame(() => f.classList.remove("on")));
   if (navigator.vibrate) navigator.vibrate(15);
   const blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.88));
-  if (blob) { const it = state.current || newCurrent(); it.photos.push(blob); save(it); renderCapture(); renderQueue(); }
+  if (blob) await addPhoto(blob);
   snapping = false;
 }
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) { if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; } }
-  else if (state.tab === "capture") startCamera();
+  else { if (state.tab === "capture") startCamera(); Sync.pull(); }
 });
 
 /* ---------- render ---------- */
 function renderCapture() {
-  const it = state.current; const n = it ? itemNumber(it) : state.items.length + 1;
-  const c = it ? it.photos.length : 0;
-  $("#itemHead").textContent = "Item " + n;
+  const it = state.current, c = it ? it.photos.length : 0;
+  $("#itemHead").textContent = "Item " + (it ? itemNumber(it) : state.items.length + 1);
   $("#itemSub").textContent = c ? `${c} photo${c > 1 ? "s" : ""}` : "Front, back, labels, any wear";
   const box = $("#photos");
   box.innerHTML = c ? it.photos.map((b, i) => `<div class="ph"><img src="${urlOf(b)}" alt="Photo ${i + 1}"><button aria-label="Remove photo ${i + 1}" data-rm="${i}">×</button></div>`).join("") : "";
   box.scrollLeft = box.scrollWidth;
   $("#nextBtn").disabled = !c;
+  const waiting = state.items.filter(i => i.state === "queued").length;
+  $("#queueNote").textContent = waiting ? (Sync.on() ? `Sending ${waiting} item${waiting > 1 ? "s" : ""}…` : `${waiting} item${waiting > 1 ? "s" : ""} waiting. Connect sync in Setup.`) : "";
 }
-function renderQueue() {
-  const w = state.items.filter(i => i.status === "queued" || i.status === "writing").length;
-  const ready = state.items.filter(i => i.status === "ready").length;
-  let t = "";
-  if (w) t = hasKey() ? `Writing ${w} listing${w > 1 ? "s" : ""}…` : `${w} waiting. Add your API key in Setup.`;
-  else if (ready) t = `${ready} listing${ready > 1 ? "s" : ""} ready to post`;
-  $("#queueNote").textContent = t;
-  const total = state.items.filter(i => i.status !== "capturing").length;
-  $("#listTab").textContent = total ? `Listings (${total})` : "Listings";
-  $("#aiState").textContent = hasKey() ? "" : "Add API key in Setup";
+function stage(it) {
+  if (it.state === "queued") return { text: Sync.on() ? (it.sent ? `Sending photos ${it.sent} of ${it.photos.length}…` : "Sending…") : "Waiting to send (connect in Setup)", kind: "" };
+  const r = it.remote || {};
+  if (r.posted) return { text: "Posted", kind: "ok" };
+  if (r.status === "ready") return { text: "Ready to post on your computer", kind: "ok" };
+  if (r.status === "writing") return { text: "Being written on your computer…", kind: "" };
+  if (r.status === "failed") return { text: "Couldn’t be written. Retry it in the extension.", kind: "err" };
+  return { text: "Waiting for your computer", kind: "" };
 }
-function cardHTML(it) {
-  const L = it.listing; const photo = it.photos[0] ? urlOf(it.photos[0]) : "";
-  let sticker, meta;
-  if (it.status === "queued" || it.status === "writing") {
-    sticker = `<span class="sticker pending dots">${it.status === "writing" ? "Pricing" : "Queued"}</span>`;
-    meta = `<div class="ctitle">Item ${itemNumber(it)}</div><div class="cmeta">${it.photos.length} photos. ${it.status === "writing" ? "Claude is writing this listing" : hasKey() ? "Waiting its turn" : "Waiting for your API key"}</div>`;
-  } else if (it.status === "failed") {
-    sticker = `<span class="sticker pending">—</span>`;
-    meta = `<div class="ctitle">Item ${itemNumber(it)}</div><div class="cmeta err">${esc(it.error)}</div>`;
-  } else {
-    sticker = `<span class="sticker">${esc(money(L.price))}</span>`;
-    const sub = it.status === "posted" ? `<div class="cmeta ok">Posted</div>` : `<div class="cmeta">${esc(L.condition)}, ${esc(L.category)}</div>`;
-    meta = `<div class="ctitle">${esc(L.title || "Untitled item " + itemNumber(it))}</div>${sub}`;
-  }
-  const open = state.open.has(it.id) ? " open" : "";
-  let body = `<div class="strip">${it.photos.map((b, i) => `<img src="${urlOf(b)}" alt="Photo ${i + 1}">`).join("")}</div>`;
-  if (it.status === "failed") {
-    body += `<div class="actions"><button class="btn small primary" data-act="retry">Retry</button><button class="btn small" data-act="manual">Write it myself</button><button class="btn small danger" data-act="delete">Delete</button></div>`;
-  } else if (it.status === "ready" || it.status === "posted") {
-    const range = (L.low !== "" && L.high !== "") ? `Similar items usually sell for ${esc(money(L.low))} to ${esc(money(L.high))}.` : "";
-    body += `
-      ${(L.retail || L.match) ? `<div class="match">${L.retail ? `${L.retailSource === "amazon" ? "Amazon price" : L.retailSource === "web" ? "Retail price found online" : "Retail price (Claude’s estimate)"}: <strong>${esc(money(L.retail))}</strong>. ` : ""}${L.match ? `Matched your order: ${esc(L.match.name.slice(0, 80))}${L.match.date ? ` from ${esc(L.match.date)}` : ""}.` : ""}</div>` : ""}
-      <div class="field"><label for="a-${it.id}">Amazon link ${L.amazonUrl ? `<a class="copy" href="${esc(L.amazonUrl)}" target="_blank" rel="noopener">Open</a>` : ""}</label><input id="a-${it.id}" data-f="amazonUrl" inputmode="url" value="${esc(L.amazonUrl || "")}" placeholder="Paste a link if Claude didn’t find one"></div>
-      ${L.check ? `<div class="note"><strong>Check before posting:</strong> ${esc(L.check)}</div>` : ""}
-      <div class="field"><label for="t-${it.id}">Title <button class="copy" data-copy="title">Copy</button></label><input id="t-${it.id}" data-f="title" value="${esc(L.title)}" maxlength="100"></div>
-      <div class="two">
-        <div class="field"><label for="p-${it.id}">Price <button class="copy" data-copy="price">Copy</button></label><input id="p-${it.id}" data-f="price" inputmode="numeric" value="${esc(L.price)}"></div>
-        <div class="field"><label for="c-${it.id}">Condition</label><select id="c-${it.id}" data-f="condition">${CONDITIONS.map(c => `<option${c === L.condition ? " selected" : ""}>${esc(c)}</option>`).join("")}</select></div>
-      </div>
-      ${range ? `<div class="note">${range}</div>` : ""}
-      <div class="field"><label for="k-${it.id}">Category</label><select id="k-${it.id}" data-f="category">${CATEGORIES.map(c => `<option${c === L.category ? " selected" : ""}>${esc(c)}</option>`).join("")}</select></div>
-      <div class="field"><label for="d-${it.id}">Description <button class="copy" data-copy="description">Copy</button></label><textarea id="d-${it.id}" data-f="description">${esc(L.description)}</textarea></div>
-      <div class="actions">
-        <button class="btn small primary" data-act="photos">Save photos</button>
-        <button class="btn small" data-act="posted">${it.status === "posted" ? "Mark not posted" : "Mark posted"}</button>
-        <button class="btn small" data-act="retry">Rewrite</button>
-        <button class="btn small danger" data-act="delete">Delete</button>
-      </div>`;
-  }
-  return `<details class="card${it.status === "posted" ? " posted" : ""}" data-id="${it.id}"${open}><summary>${photo ? `<img class="thumb" src="${photo}" alt="">` : `<div class="thumb"></div>`}<div>${meta}</div>${sticker}</summary><div class="body">${body}</div></details>`;
-}
-function renderListings() {
-  const list = state.items.filter(i => i.status !== "capturing").slice().reverse();
-  const order = { failed: 0, ready: 1, writing: 2, queued: 3, posted: 4 };
-  list.sort((a, b) => (order[a.status] - order[b.status]) || (b.created - a.created));
-  $("#cards").innerHTML = list.length ? list.map(cardHTML).join("") : `<div class="empty">No listings yet. Photograph an item on the Capture tab, then tap Next item.</div>`;
+function renderItems() {
+  const list = state.items.filter(i => i.state !== "capturing").slice().reverse();
+  $("#itemsTab").textContent = list.length ? `Items (${list.length})` : "Items";
+  $("#cards").innerHTML = list.length ? list.map(it => {
+    const st = stage(it), r = it.remote || {};
+    const title = r.title || (it.hint ? it.hint[0].toUpperCase() + it.hint.slice(1) : `Item ${itemNumber(it)}`);
+    return `<article class="card${r.posted ? " posted" : ""}" data-id="${it.id}"><div class="crow">
+      ${it.photos[0] ? `<img class="thumb" src="${urlOf(it.photos[0])}" alt="">` : `<div class="thumb"></div>`}
+      <div><div class="ctitle">${esc(title)}</div><div class="cmeta ${st.kind}">${esc(st.text)}</div></div>
+      ${r.price != null && r.status === "ready" ? `<span class="sticker">${esc(money(r.price))}</span>` : `<button class="btn small danger" data-del aria-label="Delete item">Delete</button>`}
+    </div></article>`;
+  }).join("") : `<div class="empty">No items yet. Photograph something on the Capture tab, then tap Next item.</div>`;
   const cur = state.current;
   $("#pendingBanner").innerHTML = cur && cur.photos.length
-    ? `<div class="banner"><span>Item ${itemNumber(cur)} has ${cur.photos.length} photo${cur.photos.length > 1 ? "s" : ""} and isn’t written yet.</span><button class="btn small primary" id="finishCur">Write it</button></div>` : "";
+    ? `<div class="banner"><span>Item ${itemNumber(cur)} has ${cur.photos.length} photo${cur.photos.length > 1 ? "s" : ""} and hasn’t been sent.</span><button class="btn small primary" id="finishCur">Send it</button></div>` : "";
 }
-function renderAll() { renderQueue(); renderListings(); renderOrders(); }
-
 function setTab(t) {
   state.tab = t;
   document.querySelectorAll(".tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === t)));
-  for (const id of ["capture", "listings", "setup"]) $("#" + id).hidden = id !== t;
+  for (const id of ["capture", "items", "setup"]) $("#" + id).hidden = id !== t;
   $("#bar").hidden = t !== "capture";
   $("main").style.paddingBottom = t === "capture" ? "150px" : "40px";
-  if (t === "listings") { renderListings(); Sync.pullPosted(); }
+  if (t === "items") { renderItems(); Sync.pull(); }
   if (t === "capture") startCamera(); else stopCamera();
   window.scrollTo({ top: 0 });
 }
 
 /* ---------- events ---------- */
 document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => setTab(b.dataset.tab));
-$("#camIn").onchange = e => { addFiles([...e.target.files]); e.target.value = ""; };
-$("#galIn").onchange = e => { addFiles([...e.target.files]); e.target.value = ""; };
-$("#photos").onclick = e => {
-  const b = e.target.closest("[data-rm]"); if (!b || !state.current) return;
-  state.current.photos.splice(Number(b.dataset.rm), 1); save(state.current); renderCapture();
-};
+$("#camIn").onchange = async e => { for (const f of e.target.files) await addPhoto(await shrink(f)); e.target.value = ""; };
+$("#galIn").onchange = async e => { for (const f of e.target.files) await addPhoto(await shrink(f)); e.target.value = ""; };
+$("#photos").onclick = e => { const b = e.target.closest("[data-rm]"); if (!b || !state.current) return; state.current.photos.splice(Number(b.dataset.rm), 1); DB.put(state.current); renderCapture(); };
+$("#hint").oninput = e => { if (state.current) { state.current.hint = e.target.value; DB.put(state.current); } };
 $("#nextBtn").onclick = nextItem;
 $("#shutter").onclick = snap;
 $("#camRetry").onclick = () => { stopCamera(); startCamera(); };
 $("#pendingBanner").onclick = e => { if (e.target.id === "finishCur") nextItem(); };
-
-const findItem = el => { const c = el.closest(".card"); return c && state.items.find(i => i.id === c.dataset.id); };
-$("#cards").addEventListener("toggle", e => {
-  const it = findItem(e.target); if (!it) return;
-  e.target.open ? state.open.add(it.id) : state.open.delete(it.id);
-}, true);
-$("#cards").addEventListener("input", e => {
-  const f = e.target.dataset.f; const it = findItem(e.target); if (!f || !it || !it.listing) return;
-  let v = e.target.value;
-  if (f === "price") { v = v.replace(/[^0-9]/g, ""); e.target.value = v; v = v === "" ? "" : Number(v); }
-  it.listing[f] = v;
-  if (f === "description") it.listing.baseDescription = v, it.listing.descEdited = true;
-  saveSoon(it);
-  const card = e.target.closest(".card");
-  if (f === "title") card.querySelector(".ctitle").textContent = v || "Untitled item " + itemNumber(it);
-  if (f === "price") card.querySelector(".sticker").textContent = money(v);
-  if (f === "amazonUrl") {
-    it.listing.amazonUrl = cleanAmazonUrl(v) || v.trim();
-    if (!it.listing.descEdited) { it.listing.description = composeDescription(it); card.querySelector('[data-f="description"]').value = it.listing.description; }
-  }
-});
-$("#cards").addEventListener("click", async e => {
-  const it = findItem(e.target); if (!it) return;
-  const cp = e.target.closest("[data-copy]");
-  if (cp) {
-    e.preventDefault();
-    const k = cp.dataset.copy; const v = String(it.listing[k] ?? "");
-    toast(await copyText(v) ? `${k[0].toUpperCase() + k.slice(1)} copied` : "Copy blocked here. Long-press the field to copy.");
-    return;
-  }
-  const a = e.target.closest("[data-act]"); if (!a) return;
-  const act = a.dataset.act;
-  if (act === "retry") { it.status = "queued"; it.error = ""; save(it); renderAll(); pump(); }
-  else if (act === "manual") { it.status = "ready"; it.listing = blankListing(); state.open.add(it.id); save(it); renderAll(); }
-  else if (act === "posted") { it.status = it.status === "posted" ? "ready" : "posted"; if (it.status === "posted") state.open.delete(it.id); save(it); renderAll(); }
-  else if (act === "delete") {
-    if (!confirm("Delete this item and its photos?")) return;
-    state.items = state.items.filter(i => i !== it); Sync.remove(it); DB.del(it.id); renderAll(); renderCapture();
-  }
-  else if (act === "photos") savePhotos(it);
-});
-
-async function savePhotos(it) {
-  const base = (it.listing.title || "item").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "item";
-  const files = it.photos.map((b, i) => new File([b], `${base}-${i + 1}.jpg`, { type: "image/jpeg" }));
-  try {
-    if (navigator.canShare && navigator.canShare({ files })) { await navigator.share({ files }); return; }
-  } catch (e) { if (e && e.name === "AbortError") return; }
-  for (const f of files) {
-    const a = document.createElement("a"); a.href = URL.createObjectURL(f); a.download = f.name;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-    await new Promise(r => setTimeout(r, 350));
-  }
-  toast("Photos saved to Downloads");
-}
-
-/* setup */
-function bindSetting(id, key, prop = "value", cb) {
-  const el = $(id); el[prop] = state.settings[key];
-  el.addEventListener(prop === "checked" ? "change" : "input", () => {
-    state.settings[key] = el[prop]; DB.set("settings", state.settings);
-    if (cb) cb();
-  });
-}
-function refreshDescriptions() {
-  for (const it of state.items) if (it.listing && !it.listing.descEdited && !it.listing.manual) { it.listing.description = composeDescription(it); saveSoon(it); }
-  if (state.tab === "listings") renderListings();
-}
-function renderOrders() {
-  const n = state.orders.length, listed = listedKeys(null).size, latest = state.orders[0] && state.orders[0].date;
-  $("#csvState").textContent = n ? `${n} products in the bank${latest ? `, newest order ${latest}` : ""}. ${listed} already listed.` : "The bank is empty.";
-  $("#csvClear").hidden = !n;
-}
-function renderSearchState() {
-  $("#searchState").textContent = state.searchOff && state.settings.search
-    ? "Web search is turned off for your API account, so prices are Claude’s estimates for now. Turn it on at platform.claude.com/settings/privacy (an admin of the Console organization can do this)."
-    : "";
-}
-$("#csvIn").onchange = async e => {
-  let added = [], text = "";
-  for (const f of e.target.files) { try { const t = await f.text(); text += t; added = added.concat(ordersFromCSV(t)); } catch {} }
-  e.target.value = "";
-  if (!added.length) { toast("No products found. Pick an order history CSV."); return; }
-  const before = state.orders.length;
-  state.orders = mergeOrders(added); DB.set("orders", state.orders);
-  const m = text.match(/https?:\/\/(?:www\.)?(amazon\.[a-z.]+?)\//i), s = state.settings;
-  if (m && (!s.domain || s.domain === "amazon.com") && m[1].toLowerCase() !== "amazon.com") {
-    s.domain = m[1].toLowerCase(); $("#sDomain").value = s.domain;
-    const cur = { "amazon.ca": "CAD", "amazon.co.uk": "GBP", "amazon.com.au": "AUD", "amazon.de": "EUR", "amazon.fr": "EUR", "amazon.it": "EUR", "amazon.es": "EUR" }[s.domain];
-    if (cur && s.currency === "USD") { s.currency = cur; $("#sCur").value = cur; }
-    DB.set("settings", s);
-  }
-  renderOrders();
-  const fresh = state.orders.length - before;
-  toast(fresh ? `${fresh} new product${fresh > 1 ? "s" : ""} added to the bank` : "No new products. They’re all in the bank already.");
+$("#cards").onclick = e => {
+  const b = e.target.closest("[data-del]"); if (!b) return;
+  const it = state.items.find(i => i.id === b.closest(".card").dataset.id); if (!it) return;
+  if (!confirm("Delete this item? It’s removed from your computer too.")) return;
+  state.items = state.items.filter(i => i !== it); Sync.remove(it); DB.del(it.id); renderItems(); renderCapture();
 };
-$("#csvClear").onclick = () => { if (!confirm("Remove every product from the order bank?")) return; state.orders = []; DB.set("orders", []); renderOrders(); };
 $("#wipe").onclick = async () => {
-  if (!confirm("Delete every item and photo in Quicklist?")) return;
-  for (const it of state.items) Sync.remove(it);
-  await DB.clear(); state.items = []; state.current = null; newCurrent(); renderCapture(); renderAll(); toast("All items deleted");
+  if (!confirm("Clear every item on this phone? Items already sent stay on your computer.")) return;
+  await DB.clear(); state.items = []; state.current = null; newCurrent(); renderCapture(); renderItems(); toast("This phone is cleared");
 };
 
-/* ---------- init ---------- */
-async function init() {
-  const s = await DB.get("settings");
-  if (s) { Object.assign(state.settings, s); if (!s.v) { state.settings.link = true; state.settings.v = 3; DB.set("settings", state.settings); } }
-  state.orders = (await DB.get("orders")) || [];
+/* ---------- start ---------- */
+(async () => {
   await Sync.load();
+  if (!Sync.cfg) {
+    try { const c = await (await fetch("sync-config.json", { cache: "no-store" })).json(); if (c && c.url && c.key) Sync.cfg = { url: String(c.url).replace(/\/+$/, ""), key: c.key, email: c.email || "" }; } catch {}
+  }
+  if (Sync.cfg) { $("#sbUrl").value = Sync.cfg.url || ""; $("#sbKey").value = Sync.cfg.key || ""; $("#sbEmail").value = Sync.cfg.email || ""; }
   const items = ((await DB.all()) || []).sort((a, b) => a.created - b.created);
-  for (const it of items) if (it.status === "writing") { it.status = "queued"; save(it); }
   state.items = items;
-  const caps = items.filter(i => i.status === "capturing");
+  const caps = items.filter(i => i.state === "capturing");
   state.current = caps.pop() || null;
   for (const extra of caps) if (!extra.photos.length) { state.items = state.items.filter(i => i !== extra); DB.del(extra.id); }
   if (!state.current) newCurrent();
-
-  bindSetting("#sKey", "key", "value", () => { $("#keyState").textContent = ""; renderAll(); pump(); });
-  bindSetting("#sModel", "model");
-  bindSetting("#sStyle", "style");
-  bindSetting("#sCur", "currency", "value", () => { if (state.tab === "listings") renderListings(); });
-  bindSetting("#sNote", "note", "value", refreshDescriptions);
-  bindSetting("#sStory", "story");
-  bindSetting("#sSearch", "search", "checked", renderSearchState);
-  bindSetting("#sLink", "link", "checked", refreshDescriptions);
-  bindSetting("#sDomain", "domain", "value", refreshDescriptions);
-  renderOrders(); renderCapture(); renderAll();
-
-  if (!Sync.cfg) {
-    // Optional sync-config.json next to index.html fills in the connection details.
-    try {
-      const c = await (await fetch("sync-config.json", { cache: "no-store" })).json();
-      if (c && c.url && c.key) Sync.cfg = { url: String(c.url).replace(/\/+$/, ""), key: c.key, email: c.email || "" };
-    } catch {}
-  }
-  if (Sync.cfg) { $("#sbUrl").value = Sync.cfg.url || ""; $("#sbKey").value = Sync.cfg.key || ""; $("#sbEmail").value = Sync.cfg.email || ""; }
-  renderSyncState(); renderAll(); pump();
-  if (Sync.on()) { Sync.queueAll(); if (Sync.deletes.length) Sync.schedule(500); Sync.pullPosted(); }
-  if (state.tab === "capture") startCamera();
-}
-$("#keyTest").onclick = async () => {
-  const st = $("#keyState");
-  if (!hasKey()) { st.textContent = "Paste your API key first."; return; }
-  st.textContent = "Testing…";
-  try { await callClaude("Reply with the word ok.", [], 10); st.textContent = "Key works. You’re ready to list."; }
-  catch (e) { st.textContent = e.message; }
-};
-if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
-init();
+  $("#hint").value = state.current.hint || "";
+  renderSync(); renderCapture(); renderItems();
+  if (Sync.on()) { Sync.schedule(300); Sync.pull(); }
+  startCamera();
 })();
+if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+})();
+
 </script>
 </body>
 </html>

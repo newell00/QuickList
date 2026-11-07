@@ -1,7 +1,7 @@
 {
   "name": "Quicklist",
   "short_name": "Quicklist",
-  "description": "Photograph items and get Facebook Marketplace listings written for you.",
+  "description": "Photograph items to sell; your computer turns them into Facebook Marketplace listings.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
