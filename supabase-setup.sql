@@ -12,7 +12,9 @@ create table if not exists public.listings (
   description text,
   amazon_url  text,
   photos      text[] not null default '{}',
-  posted      boolean not null default false
+  posted      boolean not null default false,
+  order_name  text,
+  order_url   text
 );
 
 alter table public.listings enable row level security;

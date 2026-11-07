@@ -310,7 +310,7 @@ label.btn:focus-within{ outline:3px solid var(--brand); outline-offset:2px; }
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
 
-const CATEGORIES = ["Antiques & Collectibles","Appliances","Arts & Crafts","Auto Parts","Baby & Kids","Bags & Luggage","Bicycles","Books, Movies & Music","Electronics & Computers","Furniture","Garden & Outdoor","Health & Beauty","Household","Jewelry & Accessories","Men’s Clothing & Shoes","Mobile Phones","Musical Instruments","Pet Supplies","Sports & Outdoors","Tools","Toys & Games","Video Games","Women’s Clothing & Shoes","Miscellaneous"];
+const CATEGORIES = ["Antiques & Collectibles","Appliances","Arts & Crafts","Auto Parts","Baby & Kids","Bags & Luggage","Bicycles","Books, Movies & Music","Electronics & Computers","Furniture","Garden","Health & Beauty","Household","Jewelry & Accessories","Men’s Clothing & Shoes","Mobile Phones","Musical Instruments","Pet Supplies","Sports & Outdoors","Tools","Toys & Games","Video Games","Women’s Clothing & Shoes","Miscellaneous"];
 const CONDITIONS = ["New","Used - like new","Used - good","Used - fair"];
 
 const state = {
@@ -384,13 +384,22 @@ const Sync = {
         await this.req(`/storage/v1/object/photos/${paths[i]}`, { method: "POST", headers: { "content-type": it.photos[i].type || "image/jpeg", "x-upsert": "true" }, body: it.photos[i] });
       it.syncedPhotos = it.photos.length;
     }
+    try { await this.upsert(it, uid, L, paths); }
+    catch (e) {
+      // Projects set up before the order columns existed: sync without them.
+      if (!this.noOrderCols && /order_(name|url)/.test(e.message)) { this.noOrderCols = true; await this.upsert(it, uid, L, paths); }
+      else throw e;
+    }
+    it.syncedAt = Date.now(); DB.put(it);
+  },
+  async upsert(it, uid, L, paths) {
     await this.req("/rest/v1/listings", {
       method: "POST", headers: { "content-type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
       body: JSON.stringify({ id: it.id, user_id: uid, created_at: new Date(it.created).toISOString(), updated_at: new Date().toISOString(),
         title: L.title, price: L.price === "" ? null : Number(L.price), condition: L.condition, category: L.category,
-        description: L.description, amazon_url: L.amazonUrl || null, photos: paths, posted: it.status === "posted" })
+        description: L.description, amazon_url: L.amazonUrl || null, photos: paths, posted: it.status === "posted",
+        ...(this.noOrderCols ? {} : { order_name: L.match ? L.match.name : null, order_url: L.match ? (L.match.orderUrl || (state.orders.find(o => o.name === L.match.name) || {}).orderUrl || null) : null }) })
     });
-    it.syncedAt = Date.now(); DB.put(it);
   },
   async flush() {
     if (!this.on() || this.busy) return;
@@ -497,6 +506,7 @@ function ordersFromCSV(text) {
   const find = res => { for (const re of res) { const i = h.findIndex(x => re.test(x)); if (i >= 0) return i; } return -1; };
   const iName = find([/^product name$/, /^title$/, /product name/, /item name/, /^items?$/]);
   const iAsin = find([/^asin$/, /asin/]);
+  const iUrl = find([/^order url$/, /order.?url/, /order.?detail/]);
   const iDate = find([/^order date$/, /order date/, /^date$/]);
   const iPrice = find([/^unit price$/, /purchase price per unit/, /item total/, /total owed/, /^total$/, /price/]);
   if (iName < 0) return [];
@@ -514,13 +524,18 @@ function ordersFromCSV(text) {
     const d = new Date(r[iDate] || "");
     const date = isNaN(d) ? "" : d.toISOString().slice(0, 10);
     const asin = iAsin >= 0 ? (r[iAsin] || "").trim() : "";
-    for (const name of names) out.push({ name, asin, date, price });
+    const orderUrl = iUrl >= 0 && /^https:\/\/(www\.)?amazon\./.test((r[iUrl] || "").trim()) ? r[iUrl].trim() : "";
+    for (const name of names) out.push({ name, asin, date, price, orderUrl });
   }
   return out;
 }
 function mergeOrders(list) {
   const seen = new Map();
-  for (const o of [...state.orders, ...list]) { const k = o.asin || o.name; const prev = seen.get(k); if (!prev || (o.date > prev.date)) seen.set(k, o); }
+  for (const o of [...state.orders, ...list]) {
+    const k = o.asin || o.name, prev = seen.get(k);
+    if (!prev || o.date > prev.date) seen.set(k, prev && o.date === prev.date ? { ...prev, ...o } : o);
+    else if (o.date === prev.date) seen.set(k, { ...prev, ...Object.fromEntries(Object.entries(o).filter(([, v]) => v)) });
+  }
   return [...seen.values()].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
 }
 
@@ -553,7 +568,7 @@ If the item clearly is one of these, set match to its number and use that produc
 1. Identify it: the exact product (brand, model, size, color) from the photos${orders.length ? " and the order list below" : ""}. Never invent specs you can't see or reliably know.
 ${ordersBlock}
 2. Retail price, in ${cur}: ${search
-    ? `search the web for this exact product on ${dom}. Put its current listed price in retail_price and its product page URL (the link containing /dp/) in amazon_url. If you can't find it on ${dom}, use another major retailer's current price and leave amazon_url as "". Use at most 2 searches.`
+    ? `search the web for this exact product on ${dom}${orders.length ? " (if it matches one of the orders, search for that order's product name)" : ""}. Put its current listed price in retail_price and its product page URL (the link containing /dp/) in amazon_url. If you can't find it on ${dom}, use another major retailer's current price and leave amazon_url as "". Use at most 2 searches.`
     : `estimate what it sells for new on ${dom} today. Leave amazon_url as "".`}
 
 3. Asking price: price is ${STYLE[s.style] || STYLE.fair}. Go lower if the photos show wear. Give a realistic price_low and price_high around it.
