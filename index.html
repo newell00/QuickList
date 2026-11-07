@@ -346,17 +346,26 @@ function ordersFromCSV(text) {
   const rows = parseCSV(text.replace(/^\uFEFF/, "")); if (rows.length < 2) return [];
   const h = rows[0].map(x => x.trim().toLowerCase());
   const find = res => { for (const re of res) { const i = h.findIndex(x => re.test(x)); if (i >= 0) return i; } return -1; };
-  const iName = find([/^product name$/, /^title$/, /product name/, /item name/]);
+  const iName = find([/^product name$/, /^title$/, /product name/, /item name/, /^items?$/]);
   const iAsin = find([/^asin$/, /asin/]);
-  const iDate = find([/^order date$/, /order date/]);
-  const iPrice = find([/^unit price$/, /purchase price per unit/, /item total/, /total owed/, /price/]);
+  const iDate = find([/^order date$/, /order date/, /^date$/]);
+  const iPrice = find([/^unit price$/, /purchase price per unit/, /item total/, /total owed/, /^total$/, /price/]);
   if (iName < 0) return [];
+  const multi = h[iName] === "items"; // order-history extension format: several products per order, split by ";"
   const out = [];
   for (const r of rows.slice(1)) {
-    const name = (r[iName] || "").trim(); if (!name) continue;
-    const price = parseFloat(String(r[iPrice] ?? "").replace(/[^0-9.]/g, ""));
-    const d = new Date(r[iDate] || ""); 
-    out.push({ name, asin: iAsin >= 0 ? (r[iAsin] || "").trim() : "", date: isNaN(d) ? "" : d.toISOString().slice(0, 10), price: isNaN(price) ? null : price });
+    const cell = (r[iName] || "").trim();
+    if (!cell || cell.toLowerCase() === h[iName]) continue; // skip repeated header rows
+    let parts = multi ? cell.split(/;\s*/) : [cell];
+    // product titles can contain ";" too: a piece starting in lowercase continues the previous title
+    if (multi) parts = parts.reduce((acc, x) => { if (acc.length && /^[a-z]/.test(x)) acc[acc.length - 1] += "; " + x; else acc.push(x); return acc; }, []);
+    const names = parts.map(x => x.split(" | ")[0].trim()).filter(Boolean);
+    let price = parseFloat(String(r[iPrice] ?? "").replace(/[^0-9.]/g, ""));
+    if (isNaN(price) || price <= 0 || names.length > 1) price = null; // an order total can't be split across items
+    const d = new Date(r[iDate] || "");
+    const date = isNaN(d) ? "" : d.toISOString().slice(0, 10);
+    const asin = iAsin >= 0 ? (r[iAsin] || "").trim() : "";
+    for (const name of names) out.push({ name, asin, date, price });
   }
   return out;
 }

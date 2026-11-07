@@ -1,6 +1,6 @@
 // Caches the app files so Quicklist opens fast and works offline.
 // Listings still need a connection to reach Claude.
-const VERSION = "quicklist-v1";
+const VERSION = "quicklist-v2";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", e => {
