@@ -556,7 +556,7 @@ ${ordersBlock}
     ? `search the web for this exact product on ${dom}. Put its current listed price in retail_price and its product page URL (the link containing /dp/) in amazon_url. If you can't find it on ${dom}, use another major retailer's current price and leave amazon_url as "". Use at most 2 searches.`
     : `estimate what it sells for new on ${dom} today. Leave amazon_url as "".`}
 
-3. Asking price: price is ${STYLE[s.style] || STYLE.fair}. Go lower if the photos show wear. Round to a friendly number (ending in 0 or 5 above 20). Give a realistic price_low and price_high around it.
+3. Asking price: price is ${STYLE[s.style] || STYLE.fair}. Go lower if the photos show wear. Give a realistic price_low and price_high around it.
 
 4. Write:
 - title: under 70 characters, in the form "<what it is, in plain words, plus its key spec> - <brand and model>". Examples: "Dashcam 4K front and rear - Vantrue Sonnet S1 Pro Max", "OBD2 diagnostic scanner - LAUNCH Creader Elite V3 G". If the brand or model is unknown, leave out the part after the dash. No emoji, all caps or hype.
@@ -659,12 +659,13 @@ async function generate(it) {
     }
     const r = parseJSON(raw);
     const n = v => { const x = Math.round(Number(v)); return isFinite(x) && x > 0 ? x : ""; };
+    const up10 = v => v === "" ? "" : Math.max(10, Math.ceil(v / 10) * 10); // cash-friendly: always round up to the next $10
     const idx = Number(r.match);
     const match = Number.isInteger(idx) && idx >= 1 && idx <= built.orders.length ? built.orders[idx - 1] : null;
     const amazonUrl = cleanAmazonUrl(r.amazon_url);
     it.listing = {
       title: String(r.title || "").slice(0, 100),
-      price: n(r.price), low: n(r.price_low), high: n(r.price_high),
+      price: up10(n(r.price)), low: up10(n(r.price_low)), high: up10(n(r.price_high)),
       retail: n(r.retail_price), retailSource: !search ? "estimate" : amazonUrl ? "amazon" : "web",
       amazonUrl,
       condition: CONDITIONS.includes(r.condition) ? r.condition : "Used - good",
