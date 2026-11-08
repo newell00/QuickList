@@ -30,7 +30,8 @@ No spreadsheet needed: the extension searches your Amazon orders directly. CSV i
 3. Tap **Edit** on any listing to change its title, price, condition, category, description or Amazon link. Changes save
    by themselves.
 4. On Facebook: **List this item** for one item, or tick listings (or Select all) and click **List multiple**. It opens
-   Create Multiple Listings and tells you how many rows to add, then click **List multiple** again to fill them.
+   Create Multiple Listings, adds one row per ticked listing and fills them. (Already on that page with rows? It fills
+   those rows instead.)
 5. Publish on Facebook, then **Mark posted**.
 
 ## Good to know
